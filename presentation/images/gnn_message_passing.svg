@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="720" viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Message passing diagram">
+  <style>
+    .bg { fill: none; }
+    .node { fill: #38bdf8; stroke: #0f172a; stroke-width: 2px; }
+    .node-core { fill: #fbbf24; }
+    .label { font-family: Arial, sans-serif; fill: #cbd5e1; font-size: 18px; }
+    .arrow { stroke: #94a3b8; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowhead); }
+    .panel { fill: rgba(30,41,59,0.06); stroke: rgba(30,41,59,0.08); }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+    </marker>
+  </defs>
+
+  <!-- left: neighbors -->
+  <g transform="translate(120,180)">
+    <rect x="-40" y="-40" width="320" height="220" rx="10" class="panel" />
+    <text x="20" y="-12" class="label">Neighbors (1-hop)</text>
+    <circle cx="60" cy="80" r="28" class="node" />
+    <circle cx="160" cy="40" r="24" class="node" />
+    <circle cx="220" cy="120" r="20" class="node" />
+    <circle cx="30" cy="30" r="18" class="node" />
+  </g>
+
+  <!-- center: target node -->
+  <g transform="translate(520,300)">
+    <circle cx="0" cy="0" r="48" class="node node-core" />
+    <text x="0" y="6" text-anchor="middle" class="label">v</text>
+  </g>
+
+  <!-- arrows from neighbors to center -->
+  <path d="M200 250 C 330 210, 430 200, 470 288" class="arrow" />
+  <path d="M120 220 C 240 180, 420 170, 470 330" class="arrow" />
+  <path d="M260 160 C 380 140, 460 190, 493 270" class="arrow" />
+  <path d="M160 120 C 300 140, 420 170, 480 300" class="arrow" />
+
+  <!-- right: aggregation box -->
+  <g transform="translate(760,180)">
+    <rect x="-20" y="-40" width="300" height="220" rx="10" class="panel" />
+    <text x="130" y="-12" class="label">Aggregate &amp; Update</text>
+    <rect x="40" y="30" width="220" height="60" rx="8" fill="#1e293b" stroke="#0b1220"/>
+    <text x="150" y="70" text-anchor="middle" class="label">AGG({h_u})</text>
+    <rect x="40" y="110" width="220" height="60" rx="8" fill="#0f172a" stroke="#0b1220"/>
+    <text x="150" y="150" text-anchor="middle" class="label">h_v^{k} = σ(W [h_v^{k-1}, AGG])</text>
+  </g>
+
+  <!-- caption -->
+  <text x="600" y="680" text-anchor="middle" class="label">Message passing: gather → aggregate → update</text>
+</svg>

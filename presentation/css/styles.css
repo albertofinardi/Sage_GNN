@@ -1,0 +1,192 @@
+:root {
+    --font-family-display: Arial, sans-serif;
+    --font-weight-display: 600;
+    --font-family-content: Arial, sans-serif;
+    --font-weight-content: 400;
+    --font-size-content: 16px;
+    --line-height-content: 1.4;
+    --slide-width: 1400px;
+    --slide-height: 920px;
+}
+
+body.theme-dark {
+    --color-bg-base: #0f172a;
+    --color-bg-elevated: #020617;
+    --color-bg-surface: #1e293b;
+    --color-bg-muted: #334155;
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary: #cbd5e1;
+    --color-text-muted: #94a3b8;
+    --color-text-accent: #38bdf8;
+    --color-primary: #38bdf8;
+    --color-primary-foreground: #0f172a;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family-content);
+    font-weight: var(--font-weight-content);
+    font-size: var(--font-size-content);
+    line-height: var(--line-height-content);
+    overflow-x: hidden;
+    background: var(--color-bg-base);
+    color: var(--color-text-primary);
+}
+
+.slide {
+    /* responsive slide sizing: prefer large slide but fit within viewport */
+    width: min(var(--slide-width), calc(100vw - 80px));
+    height: min(var(--slide-height), calc(100vh - 160px));
+    /* slides will be absolutely positioned inside #slides so only one shows */
+    margin: 0;
+    display: none;
+    flex-shrink: 0;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    overflow: auto;
+    border-radius: 6px;
+    box-shadow: 0 12px 30px rgba(2,6,23,0.6);
+    background-clip: padding-box;
+    opacity: 0;
+    transition: opacity 220ms ease-in-out, transform 220ms ease-in-out;
+}
+
+.slide.is-active { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+.row { display:flex; flex-direction: row; }
+.col { display:flex; flex-direction: column; }
+.center { justify-content: center; align-items: center; text-align: center; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.fill-width { flex: 1; }
+.fill-height { flex: 1; display: flex; flex-direction: column; }
+
+/* Slide container: center active slide in viewport */
+#slides {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    position: relative;
+}
+
+#progress {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    text-align: center;
+    margin-top: 8px;
+}
+.gap-sm { gap: 0.5rem; }
+.gap-md { gap: 1rem; }
+.gap-lg { gap: 1.5rem; }
+.gap-xl { gap: 2rem; }
+
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+.p-12 { padding: 3rem; }
+.p-16 { padding: 4rem; }
+
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-8 { margin-bottom: 2rem; }
+.mb-12 { margin-bottom: 3rem; }
+
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mt-8 { margin-top: 2rem; }
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family-display);
+    font-weight: var(--font-weight-display);
+    line-height: 1.2;
+    margin: 0;
+}
+
+h1 { font-size: 4rem; }
+h2 { font-size: 3rem; }
+h3 { font-size: 2.25rem; }
+
+.text-6xl { font-size: 5rem; }
+.text-5xl { font-size: 4rem; }
+.text-4xl { font-size: 3rem; }
+.text-3xl { font-size: 2.25rem; }
+.text-2xl { font-size: 1.75rem; }
+.text-xl { font-size: 1.25rem; }
+.text-lg { font-size: 1.25rem; }
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+
+.opacity-90 { opacity: 0.9; }
+.opacity-80 { opacity: 0.8; }
+
+ul, ol { margin-left: 2rem; line-height: 1.8; }
+li { margin-bottom: 0.75rem; list-style: disc; }
+li:last-child { margin-bottom: 0; }
+p { margin: 0; line-height: 1.6; }
+
+.card-rect { padding: 2rem; box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+
+code { font-family: 'Courier New', monospace; font-size: 0.9rem; padding: 2px 6px; background-color: #1e293b; color: #38bdf8; border-radius: 3px; }
+
+/* Semantic utility classes */
+.bg-elevated { background-color: var(--color-bg-elevated); }
+.bg-base { background-color: var(--color-bg-base); }
+.bg-surface { background-color: var(--color-bg-surface); }
+.text-foreground { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-muted); }
+.accent { color: var(--color-text-accent); }
+.highlight { color: #fbbf24; }
+.card { background-color: var(--color-bg-surface); color: var(--color-text-primary); padding: 1.5rem; box-shadow: 0 8px 16px rgba(0,0,0,0.2); border-radius: 6px; }
+
+/* Notation helper: constrain and allow internal scrolling if long */
+.notation { max-height: 40%; overflow: auto; padding-right: 8px; }
+.notation-title { font-size: 1.1rem; letter-spacing: 0.02em; }
+
+/* Inline math container (KaTeX output will be inline-block) */
+.math { display: inline-block; min-width: 3rem; color: var(--color-text-secondary); }
+
+/* Math block styling for the equation cards */
+.math-block { display:flex; flex-direction:column; align-items:center; gap:12px; margin-top:1rem; }
+.math-card { padding: 12px 18px; border-radius:8px; background: rgba(15,23,42,0.6); font-family: 'Courier New', monospace; color: var(--color-text-secondary); }
+
+/* Notation rows: align symbol and description on one line */
+.notation-row { display:flex; gap:12px; align-items:baseline; }
+.notation-row span + span { color: var(--color-text-secondary); }
+
+/* Two-column layout on wider screens for compact notation */
+@media (min-width: 1100px) {
+    .notation { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .notation-row { align-items:center; }
+}
+
+/* Navigation footer */
+.present-nav { display:flex; justify-content:center; gap:1rem; margin: 12px 0; }
+.present-nav button { background:var(--color-bg-surface); color:var(--color-text-primary); border:0; padding:0.6rem 1rem; border-radius:6px; cursor:pointer; }
+.present-nav button:focus { outline:2px solid var(--color-text-accent); }
+
+/* Accessibility */
+.sr-only { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+/* Small responsive tweak */
+@media (max-width: 1000px) {
+    .slide { width: calc(100% - 40px); height: auto; min-height: 360px; }
+}
+
+/* Slide artwork */
+.slide-art { display:block; max-width:84%; height:auto; margin:1rem auto 0; }
+
+/* larger variant for key illustrations */
+.slide-art-lg { max-width:94%; }

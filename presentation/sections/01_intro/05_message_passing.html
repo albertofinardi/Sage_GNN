@@ -1,0 +1,28 @@
+<section class="slide p-16 col bg-base text-foreground">
+    <h2 class="mb-4 accent">Message Passing: The Core Idea</h2>
+    <p class="text-lg mb-6 text-secondary"><strong>Three steps repeated at each layer:</strong></p>
+    <ul class="text-lg text-secondary">
+        <li><strong>1. Gather:</strong> Collect embeddings from neighboring nodes</li>
+        <li><strong>2. Aggregate:</strong> Combine neighbors' info (sum / mean / max)</li>
+        <li><strong>3. Update:</strong> Apply learned transform using the aggregated vector</li>
+    </ul>
+
+    <div class="math-block">
+        <div class="math-card">\(\mathrm{AGG}\left(\{h_u\}\right)\)</div>
+        <div class="math-card">\(h_v^{(k)} = \sigma\left( W\; [\; h_v^{(k-1)} \; , \; \mathrm{AGG}(\{ h_u : u \in N(v) \}) \; ] \right)\)</div>
+    </div>
+
+    <p class="text-sm mt-8 text-muted">Analogy: CNNs aggregate over fixed local pixel neighborhoods; GNNs aggregate over variable-size neighbor sets.</p>
+
+    <div class="notation mt-6 text-sm text-secondary">
+        <h3 class="mb-2 accent notation-title">Notation</h3>
+        <div class="notation-row"><span class="math">\(h_v^{(k)}\)</span><span>Representation (embedding) of node <em>v</em> at layer <em>k</em>.</span></div>
+        <div class="notation-row"><span class="math">\(h_u\)</span><span>Representation of a neighbor node <em>u</em> (typically from previous layer).</span></div>
+        <div class="notation-row"><span class="math">\(N(v)\)</span><span>Set of neighbor nodes of <em>v</em>.</span></div>
+        <div class="notation-row"><span class="math">\(\mathrm{AGG}(\{h_u\})\)</span><span>Aggregator function that combines neighbor representations (mean, sum, max, LSTM, etc.).</span></div>
+        <div class="notation-row"><span class="math">\(W\)</span><span>Learnable weight matrix (parameters of the update network).</span></div>
+        <div class="notation-row"><span class="math">\(\sigma\)</span><span>Element-wise non-linear activation (e.g., ReLU, tanh).</span></div>
+        <div class="notation-row"><span class="math">\(k\)</span><span>Layer index (number of message-passing hops).</span></div>
+    </div>
+    <p class="text-base mt-6 text-muted">Even with this machinery, we still lack a function that generalizes to new nodes &mdash; which motivates GraphSAGE&rsquo;s key insight.</p>
+</section>

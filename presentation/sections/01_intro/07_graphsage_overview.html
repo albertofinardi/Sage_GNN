@@ -1,0 +1,13 @@
+<section class="slide p-16 col bg-base text-foreground">
+    <h2 class="mb-6 accent">GraphSAGE: Inductive Framework</h2>
+    <p class="text-lg mb-4 text-secondary"><strong>Core Principle:</strong> Sample + Aggregate</p>
+    <ul class="text-lg text-secondary">
+        <li>Learn <strong>aggregator functions</strong> (not node embeddings)</li>
+        <li>For any node v: <strong>sample neighbors, aggregate their features</strong></li>
+        <li>Pass through learned neural networks</li>
+        <li><strong>Inference:</strong> Apply same function to unseen nodes</li>
+    </ul>
+    <div class="mt-6" style="display:flex;justify-content:center;">
+        <img src="../images/graphsage_sample_aggregate.svg" alt="GraphSAGE sample and aggregate illustration" class="slide-art slide-art-lg" />
+    </div>
+</section>
