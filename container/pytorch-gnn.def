@@ -1,0 +1,63 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+
+%post
+    # Update and install basic dependencies
+    apt-get update && apt-get install -y \
+        wget \
+        git \
+        build-essential \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install numpy < 2.0
+    pip install --no-cache-dir "numpy<2.0"
+
+    # Install PyTorch Geometric and dependencies
+    # Using torch-2.1.0 wheel URL (compatible with PyTorch 2.1.x including 2.1.2)
+    pip install --no-cache-dir \
+        torch-scatter \
+        torch-sparse \
+        torch-cluster \
+        torch-spline-conv \
+        -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+
+    # Install PyG with pyg-lib for efficient neighbor sampling
+    pip install --no-cache-dir \
+        torch-geometric \
+        pyg-lib \
+        -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+
+    # Install remaining dependencies
+    pip install --no-cache-dir \
+        pandas \
+        tqdm \
+        scikit-learn
+
+    # Install OGB (Open Graph Benchmark)
+    pip install --no-cache-dir ogb
+
+%environment
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=$CUDA_HOME/bin:$PATH
+    export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+    # Default OGB cache location (can be overridden by bind mount or CLI)
+    export OGB_DATA_DIR=/data
+
+%runscript
+    exec python "$@"
+
+%labels
+    Author alberto.finardi
+    Version 1.0
+    Description PyTorch + PyTorch Geometric container for GNN training
+
+%help
+    This container includes:
+    - PyTorch 2.1.2 with CUDA 12.1 support
+    - PyTorch Geometric with pyg-lib and torch-sparse
+    - NumPy < 2.0
+    - OGB (Open Graph Benchmark)
+    - Required dependencies: pandas, tqdm, scikit-learn
+
+    Usage:
+        apptainer exec --nv container.sif python script.py

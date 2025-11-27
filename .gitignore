@@ -1,0 +1,12 @@
+# Ignore runtime logs (but keep the directory via .gitkeep)
+logs/*
+!logs/.gitkeep
+
+# Python cache
+__pycache__/
+.pytest_cache/
+
+# Temporary files
+*.pyc
+*.pyo
+*.swp

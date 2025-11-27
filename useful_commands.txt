@@ -1,0 +1,7 @@
+sbatch build_container_slurm.sh
+sbatch --export=ALL,CONTAINER=/mnt/tier1/project/p200981/pytorch-gnn-u103056.sif run_container.slurm
+
+salloc -J gnn_interactive -N 1 --ntasks-per-node=1 --gres=gpu:1 --time=00:10:00 -p gpu -A p200981 --qos=default
+
+srun --jobid=3781156 --pty bash
+watch -n 1 nvidia-smi
