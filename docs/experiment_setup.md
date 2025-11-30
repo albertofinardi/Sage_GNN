@@ -12,14 +12,12 @@ The baseline configuration (`id 0`) serves as the reference point for all experi
 | `hidden_dim` | `256` |
 | `num_layers` | `5` |
 | `num_neighbors` | `15 10 10 10 10` |
-| `num_workers` | `32` |
 | `accum_steps` | `5` |
 | `lr` | `0.003` |
-| `patience` | `10` |
 
 ## Exploration Strategy
 
-We perform a systematic one-at-a-time parameter exploration to study the independent effect of each hyperparameter. For each parameter of interest, we evaluate 5 different values while keeping all other parameters fixed at their baseline values.
+We perform a systematic one-at-a-time parameter exploration to study the independent effect of each hyperparameter. For each parameter of interest, we evaluate different values while keeping all other parameters fixed at their baseline values.
 
 ## Parameter Variations
 
@@ -58,7 +56,7 @@ We perform a systematic one-at-a-time parameter exploration to study the indepen
 - `8`
 
 ### `num_neighbors` (Neighborhood Sampling Per Layer)
-**Note:** The number of values must match `num_layers`. For the num_layers sweep (configs 6-10), num_neighbors are adjusted accordingly.
+**Note:** The number of values must match `num_layers`. 
 
 - `10 10 10 10 10` (uniform conservative)
 - `15 10 10 10 10` (baseline)
