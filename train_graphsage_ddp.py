@@ -4,6 +4,7 @@ Distributed Data Parallel training across multiple GPUs.
 """
 
 import os
+import csv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -290,6 +291,10 @@ def main():
                         help='Early stopping patience (number of eval rounds without improvement)')
     parser.add_argument('--accum_steps', type=int, default=1,
                         help='Gradient accumulation steps. Effective batch = batch_size * accum_steps * world_size')
+    parser.add_argument('--results_file', type=str, default=None,
+                        help='Path to CSV file for logging results')
+    parser.add_argument('--config_id', type=int, default=None,
+                        help='Configuration ID for hyperparameter search')
     args = parser.parse_args()
     
     # Validate num_neighbors matches num_layers
@@ -303,6 +308,17 @@ def main():
     if is_main_process(rank):
         print(f"Initialized DDP with {world_size} GPUs")
         print(f"Rank {rank}, Local rank {local_rank}, Device: cuda:{local_rank}")
+
+    # Define checkpoint filename
+    if args.config_id is not None:
+        checkpoint_path = f'best_model_config_{args.config_id}.pt'
+    else:
+        checkpoint_path = 'best_model.pt'
+    
+    # Remove old checkpoint to avoid architecture mismatch
+    if is_main_process(rank) and os.path.exists(checkpoint_path):
+        os.remove(checkpoint_path)
+        print(f"Removed old checkpoint: {checkpoint_path}")
 
     try:
         # Load data (all ranks load the same data)
@@ -351,6 +367,7 @@ def main():
         best_val_acc = 0
         patience_counter = 0
         eval_num_neighbors = args.num_neighbors
+        total_training_time = 0
 
         for epoch in range(1, args.epochs + 1):
             t0 = time.time()
@@ -359,6 +376,7 @@ def main():
             loss = train_epoch(model, train_loader, optimizer, local_rank, rank, args.accum_steps)
             scheduler.step()
             train_time = time.time() - t0
+            total_training_time += train_time
             
             current_lr = scheduler.get_last_lr()[0]
 
@@ -382,7 +400,7 @@ def main():
                         best_val_acc = val_acc
                         patience_counter = 0
                         # Save only the unwrapped model state
-                        torch.save(model.module.state_dict(), 'best_model.pt')
+                        torch.save(model.module.state_dict(), checkpoint_path)
                         print(f" --- New best!")
                     else:
                         patience_counter += 1
@@ -409,8 +427,13 @@ def main():
             print("FINAL EVALUATION")
             print("="*80)
             
-            # Load best model
-            model.module.load_state_dict(torch.load('best_model.pt'))
+            # Load best model if checkpoint exists
+            if os.path.exists(checkpoint_path):
+                model.module.load_state_dict(torch.load(checkpoint_path))
+                print(f"Loaded best model from {checkpoint_path}")
+            else:
+                print(f"Warning: No checkpoint found at {checkpoint_path}, using current model")
+            
             test_acc = evaluate(
                 model.module, data, data.test_idx, local_rank,
                 eval_num_neighbors, num_workers=args.num_workers
@@ -419,6 +442,29 @@ def main():
             print(f"Best validation accuracy: {best_val_acc:.4f}")
             print(f"Test accuracy: {test_acc:.4f}")
             print("="*80)
+
+            results_file = args.results_file if args.results_file else 'results.csv'
+            config_id = args.config_id if args.config_id is not None else 0
+
+            row = {
+                'id': config_id,
+                'hidden_dim': args.hidden_dim,
+                'num_layers': args.num_layers,
+                'batch_size': args.batch_size,
+                'lr': args.lr,
+                'accum_steps': args.accum_steps,
+                'num_neighbors': ' '.join(map(str, args.num_neighbors)),
+                'best_val_acc': best_val_acc,
+                'test_acc': test_acc,
+                'training_time_s': total_training_time
+            }
+
+            file_exists = os.path.isfile(results_file)
+            with open(results_file, 'a', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=row.keys())
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(row)
 
     finally:
         # Always cleanup DDP
