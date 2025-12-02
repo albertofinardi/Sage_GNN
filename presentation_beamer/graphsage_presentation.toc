@@ -1,6 +1,0 @@
-\beamer@sectionintoc {1}{Introduction}{2}{0}{1}
-\beamer@sectionintoc {2}{The Key Insight}{8}{0}{2}
-\beamer@sectionintoc {3}{GraphSAGE Framework}{10}{0}{3}
-\beamer@sectionintoc {4}{Implementation}{12}{0}{4}
-\beamer@sectionintoc {5}{Hyperparameters}{14}{0}{5}
-\beamer@sectionintoc {6}{Results}{16}{0}{6}
