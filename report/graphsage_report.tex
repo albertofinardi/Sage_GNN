@@ -25,8 +25,9 @@
 \newcommand{\relu}{\mathrm{ReLU}}
 
 % Document metadata
-\title{\textbf{GraphSAGE: Inductive Representation Learning on Large Graphs}\\[0.5em]
-\large A Technical Report}
+\title{\textbf{Applying GraphSAGE to Large-Scale Node Classification}\\[0.5em]
+\large Programming Machine Learning Models for HPC\\
+Final Report}
 \author{Thomas Gantz \and Alberto Finardi \and Tommaso Crippa \and Jan Marxen}
 \date{December 2025}
 
@@ -35,7 +36,7 @@
 \maketitle
 
 \begin{abstract}
-This report presents an in-depth analysis of GraphSAGE (Graph SAmple and aggreGatE)~\cite{graphsage}, an inductive framework for learning node embeddings on large-scale graphs. Unlike transductive approaches that require all nodes to be present during training, GraphSAGE learns a function that generates embeddings by sampling and aggregating features from a node's local neighborhood. We discuss the theoretical foundations of graph neural networks, the key innovations of GraphSAGE, our implementation details, hyperparameter choices, and experimental results on the ogbn-products benchmark dataset.
+This report documents our study and application of GraphSAGE (Graph SAmple and aggreGatE)~\cite{graphsage}, an inductive framework for learning node embeddings on large-scale graphs. We provide background on graph neural networks and the message passing paradigm, then describe how GraphSAGE addresses the scalability limitations of earlier approaches by learning aggregator functions rather than fixed node embeddings. We apply GraphSAGE to the ogbn-products benchmark dataset for node classification, detailing our implementation choices, hyperparameter tuning process, and experimental results.
 \end{abstract}
 
 \tableofcontents
@@ -46,7 +47,7 @@ This report presents an in-depth analysis of GraphSAGE (Graph SAmple and aggreGa
 \label{sec:introduction}
 %=======================================================================
 
-Graph-structured data is ubiquitous in real-world applications, from social networks and citation graphs to biological protein interaction networks and recommendation systems. A fundamental challenge in machine learning on graphs is learning meaningful representations (embeddings) of nodes that capture both their features and their structural role in the graph.
+Graph-structured data appears in many domains, including social networks, citation graphs, biological protein interaction networks, and recommendation systems. A central challenge in machine learning on graphs is learning representations (embeddings) of nodes that capture both their features and their structural role in the graph.
 
 \subsection{Graph Prediction Tasks}
 \label{subsec:graph-prediction-tasks}
@@ -69,7 +70,7 @@ A Graph Neural Network (GNN) is a learnable transformation on graph-structured d
 \begin{enumerate}
     \item Updates node, edge, and/or graph features using neural networks
     \item Respects the graph structure by aggregating information from neighboring nodes
-    \item Is permutation invariant—the output does not depend on the ordering of nodes
+    \item Is permutation invariant: the output does not depend on the ordering of nodes
 \end{enumerate}
 
 The key insight behind GNNs is that a node's representation should be informed not only by its own features but also by the features and structure of its local neighborhood. This is achieved through iterative message passing between connected nodes.
@@ -108,7 +109,7 @@ An intuitive analogy: while CNNs aggregate over fixed local pixel neighborhoods 
 Before GraphSAGE, existing approaches for node representation learning had significant limitations:
 
 \begin{itemize}
-    \item \textbf{DeepWalk / node2vec:} These methods~\cite{deepwalk,node2vec} learn embeddings via random walks on the graph. However, they are \textit{transductive}—they learn a fixed embedding for each node in the training graph. Adding new nodes requires retraining on the entire graph. \textit{Note: These are not GNNs; they do not use message passing.}
+    \item \textbf{DeepWalk / node2vec:} These methods~\cite{deepwalk,node2vec} learn embeddings via random walks on the graph. However, they are \textit{transductive}, meaning they learn a fixed embedding for each node in the training graph. Adding new nodes requires retraining on the entire graph. Note that these are not GNNs since they do not use message passing.
     
     \item \textbf{Graph Convolutional Networks (GCNs):} GCNs~\cite{gcn} are proper GNNs that use message passing, but they typically operate on the full graph adjacency matrix during training and inference. This makes them difficult to scale to large graphs and also transductive in practice.
 \end{itemize}
@@ -123,7 +124,7 @@ The fundamental problem: \textbf{no existing method provided a compact parametri
 The central innovation of GraphSAGE is a shift in perspective:
 
 \begin{quote}
-\textit{Don't learn embeddings for each node—learn a \textbf{function} that generates embeddings.}
+\textit{Rather than learning embeddings for each node, learn a \textbf{function} that generates embeddings.}
 \end{quote}
 
 Instead of optimizing a unique embedding vector for each node (transductive), GraphSAGE learns \textit{aggregator functions} that can generate embeddings for any node by sampling and aggregating features from its neighborhood. This makes the approach \textbf{inductive}: the learned model can generalize to entirely new nodes or even new graphs, as long as node features are available.
