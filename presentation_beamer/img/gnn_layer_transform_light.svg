@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="650" height="280" viewBox="0 0 650 280" role="img">
+  <title>GNN layer-wise transformation</title>
+  <defs>
+    <linearGradient id="blueGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <linearGradient id="purpleGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,1 L8,5 L0,9 z" fill="#3b82f6"/>
+    </marker>
+  </defs>
+
+  <!-- Input Graph (Layer 0) -->
+  <g transform="translate(40, 60)">
+    <text x="50" y="-20" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#1e293b">Input Graph</text>
+    <text x="50" y="-5" text-anchor="middle" font-family="Arial" font-size="11" fill="#64748b">Layer 0</text>
+    
+    <!-- Edges -->
+    <g stroke="#94a3b8" stroke-width="2" fill="none">
+      <line x1="50" y1="40" x2="20" y2="100"/>
+      <line x1="50" y1="40" x2="80" y2="100"/>
+      <line x1="50" y1="40" x2="50" y2="120"/>
+      <line x1="20" y1="100" x2="50" y2="120"/>
+      <line x1="80" y1="100" x2="50" y2="120"/>
+    </g>
+    
+    <!-- Nodes with initial features -->
+    <circle cx="50" cy="40" r="18" fill="url(#blueGrad)" stroke="#1d4ed8" stroke-width="2"/>
+    <circle cx="20" cy="100" r="16" fill="url(#blueGrad)" stroke="#1d4ed8" stroke-width="2"/>
+    <circle cx="80" cy="100" r="16" fill="url(#blueGrad)" stroke="#1d4ed8" stroke-width="2"/>
+    <circle cx="50" cy="120" r="14" fill="url(#blueGrad)" stroke="#1d4ed8" stroke-width="2"/>
+  </g>
+
+  <!-- Arrow 1 -->
+  <g transform="translate(150, 100)">
+    <path d="M0,20 L60,20" stroke="#3b82f6" stroke-width="3" fill="none" marker-end="url(#arrowBlue)"/>
+    <text x="30" y="10" text-anchor="middle" font-family="Arial" font-size="10" fill="#3b82f6">GNN Layer</text>
+  </g>
+
+  <!-- Layer 1 -->
+  <g transform="translate(230, 60)">
+    <text x="50" y="-20" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#1e293b">Layer 1</text>
+    <text x="50" y="-5" text-anchor="middle" font-family="Arial" font-size="11" fill="#64748b">1-hop info</text>
+    
+    <g stroke="#94a3b8" stroke-width="2" fill="none">
+      <line x1="50" y1="40" x2="20" y2="100"/>
+      <line x1="50" y1="40" x2="80" y2="100"/>
+      <line x1="50" y1="40" x2="50" y2="120"/>
+      <line x1="20" y1="100" x2="50" y2="120"/>
+      <line x1="80" y1="100" x2="50" y2="120"/>
+    </g>
+    
+    <circle cx="50" cy="40" r="18" fill="url(#greenGrad)" stroke="#16a34a" stroke-width="2"/>
+    <circle cx="20" cy="100" r="16" fill="url(#greenGrad)" stroke="#16a34a" stroke-width="2"/>
+    <circle cx="80" cy="100" r="16" fill="url(#greenGrad)" stroke="#16a34a" stroke-width="2"/>
+    <circle cx="50" cy="120" r="14" fill="url(#greenGrad)" stroke="#16a34a" stroke-width="2"/>
+  </g>
+
+  <!-- Arrow 2 -->
+  <g transform="translate(340, 100)">
+    <path d="M0,20 L60,20" stroke="#3b82f6" stroke-width="3" fill="none" marker-end="url(#arrowBlue)"/>
+    <text x="30" y="10" text-anchor="middle" font-family="Arial" font-size="10" fill="#3b82f6">GNN Layer</text>
+  </g>
+
+  <!-- Layer 2 -->
+  <g transform="translate(420, 60)">
+    <text x="50" y="-20" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#1e293b">Layer 2</text>
+    <text x="50" y="-5" text-anchor="middle" font-family="Arial" font-size="11" fill="#64748b">2-hop info</text>
+    
+    <g stroke="#94a3b8" stroke-width="2" fill="none">
+      <line x1="50" y1="40" x2="20" y2="100"/>
+      <line x1="50" y1="40" x2="80" y2="100"/>
+      <line x1="50" y1="40" x2="50" y2="120"/>
+      <line x1="20" y1="100" x2="50" y2="120"/>
+      <line x1="80" y1="100" x2="50" y2="120"/>
+    </g>
+    
+    <circle cx="50" cy="40" r="18" fill="url(#purpleGrad)" stroke="#7c3aed" stroke-width="2"/>
+    <circle cx="20" cy="100" r="16" fill="url(#purpleGrad)" stroke="#7c3aed" stroke-width="2"/>
+    <circle cx="80" cy="100" r="16" fill="url(#purpleGrad)" stroke="#7c3aed" stroke-width="2"/>
+    <circle cx="50" cy="120" r="14" fill="url(#purpleGrad)" stroke="#7c3aed" stroke-width="2"/>
+  </g>
+
+  <!-- Output arrow -->
+  <g transform="translate(530, 100)">
+    <path d="M0,20 L50,20" stroke="#8b5cf6" stroke-width="3" fill="none" marker-end="url(#arrowBlue)"/>
+  </g>
+
+  <!-- Output -->
+  <g transform="translate(585, 80)">
+    <rect x="0" y="0" width="55" height="80" rx="6" fill="#f1f5f9" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="27" y="25" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#1e293b">Node</text>
+    <text x="27" y="40" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#1e293b">Embed-</text>
+    <text x="27" y="55" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#1e293b">dings</text>
+    <text x="27" y="72" text-anchor="middle" font-family="Arial" font-size="9" fill="#64748b">h_v</text>
+  </g>
+
+  <!-- Bottom legend -->
+  <g transform="translate(30, 240)">
+    <text font-family="Arial" font-size="12" fill="#334155">Each layer aggregates information from neighbors → deeper layers capture larger neighborhoods</text>
+  </g>
+</svg>

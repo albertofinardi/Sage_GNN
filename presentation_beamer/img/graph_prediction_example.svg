@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="380" viewBox="0 0 800 380" aria-labelledby="title desc" role="img">
+  <title id="title">Graph prediction example</title>
+  <desc id="desc">A small graph with nodes and edges showing a target node highlighted and neighbor aggregation arrows.</desc>
+  <defs>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <linearGradient id="nodeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- background panel -->
+  <rect x="0" y="0" width="800" height="380" rx="10" fill="#0f172a"/>
+
+  <!-- edges -->
+  <g stroke="#94a3b8" stroke-opacity="0.35" stroke-width="2" fill="none">
+    <path d="M220 120 C260 80, 340 80, 380 120"/>
+    <path d="M380 120 C420 160, 420 240, 380 280"/>
+    <path d="M380 120 C340 160, 260 160, 220 200"/>
+    <path d="M220 200 C200 220, 160 220, 140 200"/>
+    <path d="M380 280 C420 250, 480 250, 520 280"/>
+  </g>
+
+  <!-- neighbor nodes -->
+  <g transform="translate(200,120)">
+    <circle cx="20" cy="0" r="16" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+    <text x="20" y="5" text-anchor="middle" font-family="Arial" font-size="12" fill="#cbd5e1">A</text>
+  </g>
+
+  <g transform="translate(380,120)">
+    <circle cx="0" cy="0" r="18" fill="url(#nodeGrad)" stroke="#0369a1" stroke-width="2" filter="url(#shadow)"/>
+    <text x="0" y="5" text-anchor="middle" font-family="Arial" font-size="12" fill="#021124">v</text>
+  </g>
+
+  <g transform="translate(520,280)">
+    <circle cx="0" cy="0" r="14" fill="#1e293b" stroke="#06b6d4" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="Arial" font-size="11" fill="#cbd5e1">C</text>
+  </g>
+
+  <g transform="translate(220,200)">
+    <circle cx="0" cy="0" r="14" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="Arial" font-size="11" fill="#cbd5e1">B</text>
+  </g>
+
+  <g transform="translate(380,280)">
+    <circle cx="0" cy="0" r="12" fill="#111827" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="0" y="5" text-anchor="middle" font-family="Arial" font-size="11" fill="#cbd5e1">D</text>
+  </g>
+
+  <!-- aggregation arrows pointing to target node -->
+  <g stroke="#fbbf24" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <path d="M240 120 Q300 110 350 115" stroke-opacity="0.9"/>
+    <path d="M260 200 Q320 170 350 180" stroke-opacity="0.9"/>
+    <path d="M500 280 Q440 220 390 200" stroke-opacity="0.9"/>
+  </g>
+
+  <!-- labels -->
+  <g font-family="Arial" font-size="12" fill="#cbd5e1">
+    <text x="40" y="40">Node-level task: predict properties of node <tspan font-weight="700" fill="#60a5fa">v</tspan></text>
+    <text x="40" y="60" fill="#94a3b8" font-size="11">Highlighting neighbors and aggregation arrows</text>
+  </g>
+
+</svg>
