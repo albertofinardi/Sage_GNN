@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="nodeGrad1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="nodeGrad2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="900" fill="url(#bgGrad)"/>
+
+  <!-- Decorative graph network - large scattered nodes and edges -->
+  <g opacity="0.15" stroke="#60a5fa" stroke-width="1.5" fill="none">
+    <!-- Edges connecting nodes across the canvas -->
+    <path d="M100 150 Q200 100, 320 180"/>
+    <path d="M320 180 Q450 200, 520 120"/>
+    <path d="M520 120 Q600 80, 720 150"/>
+    <path d="M720 150 Q850 180, 950 100"/>
+    <path d="M950 100 Q1100 50, 1250 120"/>
+    <path d="M1250 120 Q1380 160, 1500 100"/>
+    
+    <path d="M80 400 Q180 350, 280 420"/>
+    <path d="M280 420 Q400 480, 520 400"/>
+    <path d="M520 400 Q650 350, 780 420"/>
+    
+    <path d="M1100 350 Q1200 300, 1320 380"/>
+    <path d="M1320 380 Q1450 420, 1550 360"/>
+    
+    <path d="M150 700 Q280 650, 400 720"/>
+    <path d="M400 720 Q550 780, 700 700"/>
+    <path d="M700 700 Q850 650, 1000 720"/>
+    <path d="M1000 720 Q1150 780, 1300 700"/>
+    <path d="M1300 700 Q1420 650, 1520 720"/>
+    
+    <!-- Cross connections -->
+    <path d="M320 180 Q350 300, 280 420"/>
+    <path d="M520 120 Q540 260, 520 400"/>
+    <path d="M720 150 Q750 280, 780 420"/>
+    <path d="M280 420 Q320 560, 400 720"/>
+    <path d="M520 400 Q600 550, 700 700"/>
+    <path d="M1320 380 Q1340 540, 1300 700"/>
+  </g>
+
+  <!-- Nodes - scattered across canvas -->
+  <g opacity="0.25">
+    <!-- Top row -->
+    <circle cx="100" cy="150" r="12" fill="url(#nodeGrad1)"/>
+    <circle cx="320" cy="180" r="16" fill="url(#nodeGrad2)"/>
+    <circle cx="520" cy="120" r="10" fill="url(#nodeGrad1)"/>
+    <circle cx="720" cy="150" r="14" fill="url(#nodeGrad2)"/>
+    <circle cx="950" cy="100" r="12" fill="url(#nodeGrad1)"/>
+    <circle cx="1250" cy="120" r="18" fill="url(#nodeGrad2)"/>
+    <circle cx="1500" cy="100" r="10" fill="url(#nodeGrad1)"/>
+    
+    <!-- Middle row -->
+    <circle cx="80" cy="400" r="14" fill="url(#nodeGrad2)"/>
+    <circle cx="280" cy="420" r="12" fill="url(#nodeGrad1)"/>
+    <circle cx="520" cy="400" r="16" fill="url(#nodeGrad2)"/>
+    <circle cx="780" cy="420" r="10" fill="url(#nodeGrad1)"/>
+    <circle cx="1100" cy="350" r="14" fill="url(#nodeGrad1)"/>
+    <circle cx="1320" cy="380" r="16" fill="url(#nodeGrad2)"/>
+    <circle cx="1550" cy="360" r="12" fill="url(#nodeGrad1)"/>
+    
+    <!-- Bottom row -->
+    <circle cx="150" cy="700" r="10" fill="url(#nodeGrad1)"/>
+    <circle cx="400" cy="720" r="14" fill="url(#nodeGrad2)"/>
+    <circle cx="700" cy="700" r="12" fill="url(#nodeGrad1)"/>
+    <circle cx="1000" cy="720" r="16" fill="url(#nodeGrad2)"/>
+    <circle cx="1300" cy="700" r="12" fill="url(#nodeGrad1)"/>
+    <circle cx="1520" cy="720" r="14" fill="url(#nodeGrad2)"/>
+  </g>
+
+  <!-- Highlighted central node cluster representing GraphSAGE sampling -->
+  <g transform="translate(1150, 500)" opacity="0.4" filter="url(#glow)">
+    <!-- Central target node -->
+    <circle cx="0" cy="0" r="28" fill="#fbbf24" stroke="#f59e0b" stroke-width="2"/>
+    
+    <!-- Sampled neighbors -->
+    <circle cx="-90" cy="-60" r="18" fill="url(#nodeGrad1)" stroke="#3b82f6" stroke-width="2"/>
+    <circle cx="-100" cy="50" r="16" fill="url(#nodeGrad2)" stroke="#06b6d4" stroke-width="2"/>
+    <circle cx="80" cy="-40" r="20" fill="url(#nodeGrad1)" stroke="#3b82f6" stroke-width="2"/>
+    <circle cx="90" cy="60" r="14" fill="url(#nodeGrad2)" stroke="#06b6d4" stroke-width="2"/>
+    
+    <!-- Aggregation arrows -->
+    <g stroke="#fbbf24" stroke-width="2.5" fill="none" opacity="0.8">
+      <path d="M-70 -50 Q-35 -30 -20 -15"/>
+      <path d="M-80 45 Q-40 25 -20 10"/>
+      <path d="M60 -35 Q30 -20 18 -10"/>
+      <path d="M75 50 Q40 30 18 15"/>
+    </g>
+  </g>
+
+  <!-- Subtle grid pattern overlay -->
+  <g opacity="0.03" stroke="#60a5fa" stroke-width="0.5">
+    <line x1="0" y1="0" x2="1600" y2="0"/>
+    <line x1="0" y1="150" x2="1600" y2="150"/>
+    <line x1="0" y1="300" x2="1600" y2="300"/>
+    <line x1="0" y1="450" x2="1600" y2="450"/>
+    <line x1="0" y1="600" x2="1600" y2="600"/>
+    <line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="0" y1="900" x2="1600" y2="900"/>
+    <line x1="0" y1="0" x2="0" y2="900"/>
+    <line x1="200" y1="0" x2="200" y2="900"/>
+    <line x1="400" y1="0" x2="400" y2="900"/>
+    <line x1="600" y1="0" x2="600" y2="900"/>
+    <line x1="800" y1="0" x2="800" y2="900"/>
+    <line x1="1000" y1="0" x2="1000" y2="900"/>
+    <line x1="1200" y1="0" x2="1200" y2="900"/>
+    <line x1="1400" y1="0" x2="1400" y2="900"/>
+    <line x1="1600" y1="0" x2="1600" y2="900"/>
+  </g>
+</svg>
