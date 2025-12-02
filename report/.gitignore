@@ -1,6 +1,7 @@
-# Ignore everything in this folder except .tex and .pdf
+# Ignore everything in this folder except .tex, .pdf and references
 *
 !*.tex
 !*.pdf
-# Keep the .gitignore tracked
-!.gitignore
+!*.gitignore
+
+!references.bib

@@ -1,6 +1,15 @@
-# Ignore everything in this folder except .tex and .pdf
+# Ignore everything in this folder except .tex, .pdf and essential assets
 *
 !*.tex
 !*.pdf
-# Keep the .gitignore tracked
-!.gitignore
+!*.gitignore
+
+# Keep necessary assets for building the presentation
+!collegebeamer.sty
+!references.bib
+
+!img/
+!img/*.png
+!img/*.svg
+!img/*.jpg
+!img/*.webp
