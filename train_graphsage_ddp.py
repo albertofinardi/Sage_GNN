@@ -13,6 +13,8 @@ import argparse
 import time
 from tqdm import tqdm
 from math import ceil
+import fcntl
+import tempfile
 
 # PyTorch Geometric imports
 from torch_geometric.nn import SAGEConv
@@ -272,6 +274,80 @@ def evaluate(model, data, split_idx, local_rank, num_neighbors, batch_size=16384
 
 
 # ============================================================================
+# CHECKPOINT AND RESULTS SAVING
+# ============================================================================
+
+def save_intermediate_results(row, results_file, rank):
+    """Save intermediate results to CSV file, replacing existing row with same ID.
+    
+    Uses file locking to prevent data races when multiple GPUs write simultaneously.
+    If a row with the same ID exists, it is replaced. Otherwise, a new row is appended.
+    """
+    if not is_main_process(rank):
+        return
+    
+    config_id = row['id']
+    lock_file = results_file + '.lock'
+    
+    try:
+        # Acquire lock on the results file
+        lock_fd = os.open(lock_file, os.O_CREAT | os.O_WRONLY, 0o666)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)  # Exclusive lock
+        
+        try:
+            file_exists = os.path.isfile(results_file)
+            
+            # If file doesn't exist, just write the new row
+            if not file_exists:
+                with open(results_file, 'w', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=row.keys())
+                    writer.writeheader()
+                    writer.writerow(row)
+            else:
+                # If file exists, read all rows, update/replace the one with same ID
+                rows = []
+                id_found = False
+                
+                with open(results_file, 'r', newline='') as f:
+                    reader = csv.DictReader(f)
+                    for existing_row in reader:
+                        if existing_row['id'] == str(config_id):
+                            # Replace this row with the new one
+                            rows.append(row)
+                            id_found = True
+                        else:
+                            rows.append(existing_row)
+                
+                # If ID wasn't found, append the new row
+                if not id_found:
+                    rows.append(row)
+                
+                # Write all rows back using atomic write
+                temp_fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(results_file), 
+                                                       prefix='.tmp_', suffix='.csv')
+                try:
+                    with os.fdopen(temp_fd, 'w', newline='') as f:
+                        writer = csv.DictWriter(f, fieldnames=row.keys())
+                        writer.writeheader()
+                        for r in rows:
+                            writer.writerow(r)
+                    # Atomic rename
+                    os.replace(temp_path, results_file)
+                except:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                    raise
+        
+        finally:
+            # Release lock
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+    
+    except Exception as e:
+        print(f"Warning: Failed to save results to {results_file}: {e}")
+
+
+# ============================================================================
 # MAIN
 # ============================================================================
 
@@ -368,6 +444,13 @@ def main():
         patience_counter = 0
         eval_num_neighbors = args.num_neighbors
         total_training_time = 0
+        final_train_loss = 0
+        oom_flag = 0
+        results_file = args.results_file if args.results_file else 'results.csv'
+        config_id = args.config_id if args.config_id is not None else 0
+        
+        # Reset peak memory stats
+        torch.cuda.reset_peak_memory_stats(local_rank)
 
         for epoch in range(1, args.epochs + 1):
             t0 = time.time()
@@ -377,6 +460,7 @@ def main():
             scheduler.step()
             train_time = time.time() - t0
             total_training_time += train_time
+            final_train_loss = loss
             
             current_lr = scheduler.get_last_lr()[0]
 
@@ -405,6 +489,32 @@ def main():
                     else:
                         patience_counter += 1
                         print(f" --- No improvement ({patience_counter}/{args.patience})")
+                    
+                    # Save intermediate results after each evaluation
+                    time_per_epoch = total_training_time / epoch
+                    num_train_nodes = len(data.train_idx)
+                    throughput_nodes_sec = num_train_nodes / time_per_epoch
+                    peak_gpu_memory_mb = torch.cuda.max_memory_allocated(local_rank) / (1024 * 1024)
+                    
+                    intermediate_row = {
+                        'id': config_id,
+                        'hidden_dim': args.hidden_dim,
+                        'num_layers': args.num_layers,
+                        'batch_size': args.batch_size,
+                        'lr': args.lr,
+                        'accum_steps': args.accum_steps,
+                        'num_neighbors': ' '.join(map(str, args.num_neighbors)),
+                        'num_epochs': epoch,
+                        'best_val_acc': best_val_acc,
+                        'test_acc': 0.0,  # Test acc not available until end
+                        'training_time_s': total_training_time,
+                        'time_per_epoch_sec': time_per_epoch,
+                        'throughput_nodes_sec': throughput_nodes_sec,
+                        'peak_gpu_memory_mb': peak_gpu_memory_mb,
+                        'oom_flag': oom_flag,
+                        'train_loss_final': final_train_loss
+                    }
+                    save_intermediate_results(intermediate_row, results_file, rank)
                 
                 # Broadcast early stopping decision to all ranks
                 should_stop = torch.tensor([patience_counter >= args.patience], device=local_rank)
@@ -439,13 +549,53 @@ def main():
                 eval_num_neighbors, num_workers=args.num_workers
             )
             
+            # Calculate metrics
+            time_per_epoch = total_training_time / epoch
+            num_train_nodes = len(data.train_idx)
+            throughput_nodes_sec = num_train_nodes / time_per_epoch
+            peak_gpu_memory_mb = torch.cuda.max_memory_allocated(local_rank) / (1024 * 1024)
+            
             print(f"Best validation accuracy: {best_val_acc:.4f}")
             print(f"Test accuracy: {test_acc:.4f}")
+            print(f"Time per epoch: {time_per_epoch:.2f}s")
+            print(f"Throughput: {throughput_nodes_sec:.0f} nodes/sec")
+            print(f"Peak GPU memory: {peak_gpu_memory_mb:.2f} MB")
             print("="*80)
 
+            # Final results row (update test_acc from intermediate checkpoint)
+            final_row = {
+                'id': config_id,
+                'hidden_dim': args.hidden_dim,
+                'num_layers': args.num_layers,
+                'batch_size': args.batch_size,
+                'lr': args.lr,
+                'accum_steps': args.accum_steps,
+                'num_neighbors': ' '.join(map(str, args.num_neighbors)),
+                'num_epochs': epoch,
+                'best_val_acc': best_val_acc,
+                'test_acc': test_acc,
+                'training_time_s': total_training_time,
+                'time_per_epoch_sec': time_per_epoch,
+                'throughput_nodes_sec': throughput_nodes_sec,
+                'peak_gpu_memory_mb': peak_gpu_memory_mb,
+                'oom_flag': oom_flag,
+                'train_loss_final': final_train_loss
+            }
+            
+            # Overwrite the intermediate results with final test_acc
+            save_intermediate_results(final_row, results_file, rank)
+
+    except torch.cuda.OutOfMemoryError as e:
+        # Handle OOM errors
+        if is_main_process(rank):
+            print(f"\n{'='*80}")
+            print("OUT OF MEMORY ERROR")
+            print(f"{'='*80}")
+            print(f"Error: {e}")
+            
             results_file = args.results_file if args.results_file else 'results.csv'
             config_id = args.config_id if args.config_id is not None else 0
-
+            
             row = {
                 'id': config_id,
                 'hidden_dim': args.hidden_dim,
@@ -454,18 +604,23 @@ def main():
                 'lr': args.lr,
                 'accum_steps': args.accum_steps,
                 'num_neighbors': ' '.join(map(str, args.num_neighbors)),
-                'best_val_acc': best_val_acc,
-                'test_acc': test_acc,
-                'training_time_s': total_training_time
+                'num_epochs': 0,
+                'best_val_acc': 0.0,
+                'test_acc': 0.0,
+                'training_time_s': 0.0,
+                'time_per_epoch_sec': 0.0,
+                'throughput_nodes_sec': 0.0,
+                'peak_gpu_memory_mb': 0.0,
+                'oom_flag': 1,
+                'train_loss_final': 0.0
             }
-
-            file_exists = os.path.isfile(results_file)
-            with open(results_file, 'a', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=row.keys())
-                if not file_exists:
-                    writer.writeheader()
-                writer.writerow(row)
-
+            
+            save_intermediate_results(row, results_file, rank)
+            print(f"OOM error logged to {results_file}")
+        
+        cleanup_ddp()
+        raise
+    
     finally:
         # Always cleanup DDP
         cleanup_ddp()

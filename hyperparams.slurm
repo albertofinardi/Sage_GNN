@@ -9,8 +9,8 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gpu-bind=none
-#SBATCH --time=10:00:00
-#SBATCH --array=0-24                        # Array indices (match CSV IDs)
+#SBATCH --time=24:00:00
+#SBATCH --array=0-15                        # Array indices (match CSV IDs)
 #SBATCH --output=logs/hyperparams_%A_%a.out
 #SBATCH --error=logs/hyperparams_%A_%a.err
 
@@ -48,7 +48,7 @@ srun apptainer exec --nv \
     ${CONTAINER} \
     python /workspace/train_graphsage_ddp.py \
         --data_dir /data \
-        --epochs 1 \
+        --epochs 150 \
         --lr ${lr} \
         --batch_size ${batch_size} \
         --hidden_dim ${hidden_dim} \
