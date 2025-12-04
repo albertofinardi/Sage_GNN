@@ -47,154 +47,36 @@ This report documents our study and application of GraphSAGE (Graph SAmple and a
 \label{sec:introduction}
 %=======================================================================
 
-Graph-structured data appears in many domains, including social networks, citation graphs, biological protein interaction networks, and recommendation systems. A central challenge in machine learning on graphs is learning representations (embeddings) of nodes that capture both their features and their structural role in the graph.
+Graph-structured data appears in many domains, including social networks, citation graphs, biological networks, and recommendation systems. A central challenge is learning node representations (embeddings) that capture both node features and structural context.
 
-\subsection{Graph Prediction Tasks}
-\label{subsec:graph-prediction-tasks}
+\paragraph{Graph Prediction Tasks.}
+Machine learning on graphs encompasses node-level prediction (classifying individual nodes), edge-level prediction (link prediction or edge classification), and graph-level prediction (predicting properties of entire graphs). This report focuses on \textbf{node classification}, the task addressed by GraphSAGE.
 
-Machine learning on graphs encompasses several prediction tasks at different granularities:
+\paragraph{Graph Neural Networks.}
+A Graph Neural Network (GNN) is a learnable transformation that updates node features using neural networks, respects graph structure by aggregating neighbor information, and is permutation invariant. GNNs build node representations through iterative \textbf{message passing}: at each layer, nodes gather neighbor embeddings, aggregate them with a permutation-invariant function, and apply a learned transformation.
 
-\begin{itemize}
-    \item \textbf{Node-level prediction:} Predict properties of individual nodes using their features and neighborhood information. Examples include classifying users in social networks or predicting protein functions.
-    \item \textbf{Edge-level prediction:} Predict relationships between pairs of nodes, such as link prediction (will two users become friends?) or edge classification (what type of relationship exists?).
-    \item \textbf{Graph-level prediction:} Predict properties of entire graphs, commonly used in molecular property prediction where each molecule is represented as a graph.
-\end{itemize}
+\paragraph{Limitations of Prior Methods.}
+Before GraphSAGE, methods like DeepWalk and node2vec~\cite{deepwalk,node2vec} learned embeddings via random walks but were \textit{transductive}---adding new nodes required retraining. GCNs~\cite{gcn} use message passing but operate on the full adjacency matrix, limiting scalability. The fundamental problem: \textbf{no method provided a parametric function to generate embeddings for unseen nodes.}
 
-This report focuses primarily on \textbf{node-level prediction}, specifically node classification, which is the task addressed by GraphSAGE.
-
-\subsection{What is a Graph Neural Network?}
-\label{subsec:what-is-gnn}
-
-A Graph Neural Network (GNN) is a learnable transformation on graph-structured data that:
-
-\begin{enumerate}
-    \item Updates node, edge, and/or graph features using neural networks
-    \item Respects the graph structure by aggregating information from neighboring nodes
-    \item Is permutation invariant: the output does not depend on the ordering of nodes
-\end{enumerate}
-
-The key insight behind GNNs is that a node's representation should be informed not only by its own features but also by the features and structure of its local neighborhood. This is achieved through iterative message passing between connected nodes.
-
-\subsection{Message Passing: The Core Mechanism}
-\label{subsec:message-passing}
-
-The message passing paradigm forms the foundation of most modern GNN architectures. At each layer $k$, every node updates its representation by:
-
-\begin{enumerate}
-    \item \textbf{Gather:} Collect embeddings from neighboring nodes
-    \item \textbf{Aggregate:} Combine neighbors' information using a permutation-invariant function
-    \item \textbf{Update:} Apply a learned transformation to produce the new embedding
-\end{enumerate}
-
-Formally, the message passing equation can be written as:
-\begin{equation}
-    h_v^{(k)} = \sigma\left( W^{(k)} \cdot \left[ h_v^{(k-1)} \, , \, \agg\left(\{ h_u^{(k-1)} : u \in \mathcal{N}(v) \}\right) \right] \right)
-    \label{eq:message-passing}
-\end{equation}
-
-where:
-\begin{itemize}
-    \item $h_v^{(k)}$ is the representation of node $v$ at layer $k$
-    \item $\mathcal{N}(v)$ is the set of neighbors of node $v$
-    \item $\agg(\cdot)$ is a permutation-invariant aggregation function (e.g., mean, sum, max)
-    \item $W^{(k)}$ is a learnable weight matrix for layer $k$
-    \item $\sigma$ is a non-linear activation function (e.g., ReLU)
-\end{itemize}
-
-An intuitive analogy: while CNNs aggregate over fixed local pixel neighborhoods (e.g., $3 \times 3$ patches), GNNs aggregate over variable-size neighbor sets defined by the graph topology.
-
-\subsection{Limitations of Existing Approaches}
-\label{subsec:limitations}
-
-Before GraphSAGE, existing approaches for node representation learning had significant limitations:
-
-\begin{itemize}
-    \item \textbf{DeepWalk / node2vec:} These methods~\cite{deepwalk,node2vec} learn embeddings via random walks on the graph. However, they are \textit{transductive}, meaning they learn a fixed embedding for each node in the training graph. Adding new nodes requires retraining on the entire graph. Note that these are not GNNs since they do not use message passing.
-    
-    \item \textbf{Graph Convolutional Networks (GCNs):} GCNs~\cite{gcn} are proper GNNs that use message passing, but they typically operate on the full graph adjacency matrix during training and inference. This makes them difficult to scale to large graphs and also transductive in practice.
-\end{itemize}
-
-The fundamental problem: \textbf{no existing method provided a compact parametric function that could generate embeddings for previously unseen nodes.}
-
-%=======================================================================
-\section{The Key Insight}
-\label{sec:key-insight}
-%=======================================================================
-
-The central innovation of GraphSAGE is a shift in perspective:
-
-\begin{quote}
-\textit{Rather than learning embeddings for each node, learn a \textbf{function} that generates embeddings.}
-\end{quote}
-
-Instead of optimizing a unique embedding vector for each node (transductive), GraphSAGE learns \textit{aggregator functions} that can generate embeddings for any node by sampling and aggregating features from its neighborhood. This makes the approach \textbf{inductive}: the learned model can generalize to entirely new nodes or even new graphs, as long as node features are available.
-
-The key observation is that a node's local neighborhood structure contains rich information about its role and function in the graph. By learning to aggregate this neighborhood information in a principled way, we can generate meaningful embeddings for any node.
+\paragraph{The GraphSAGE Insight.}
+GraphSAGE's innovation is to learn a \textbf{function} that generates embeddings rather than learning fixed embeddings per node. By learning aggregator functions that sample and combine neighborhood features, GraphSAGE becomes \textbf{inductive}: the model generalizes to new nodes or graphs without retraining.
 
 %=======================================================================
 \section{GraphSAGE Framework}
 \label{sec:graphsage-framework}
 %=======================================================================
 
-GraphSAGE (Graph SAmple and aggreGatE) implements the inductive learning paradigm through two main components: neighbor sampling and learned aggregation.
-
-\subsection{Algorithm Overview}
-\label{subsec:algorithm}
-
-The GraphSAGE forward propagation algorithm works as follows:
-
-\begin{algorithm}[H]
-\caption{GraphSAGE Forward Propagation}
-\label{alg:graphsage}
-\begin{algorithmic}[1]
-\Require Graph $G = (V, E)$; node features $\{x_v, \forall v \in V\}$; depth $K$; weight matrices $W^k, \forall k \in \{1, \ldots, K\}$; aggregator functions $\agg_k, \forall k \in \{1, \ldots, K\}$; neighborhood sampling functions $\mathcal{N}_k : v \rightarrow 2^V$
-\Ensure Node embeddings $z_v, \forall v \in V$
-\State $h_v^0 \leftarrow x_v, \forall v \in V$
-\For{$k = 1$ to $K$}
-    \For{$v \in V$}
-        \State $h_{\mathcal{N}(v)}^k \leftarrow \agg_k\left(\{h_u^{k-1}, \forall u \in \mathcal{N}_k(v)\}\right)$
-        \State $h_v^k \leftarrow \sigma\left(W^k \cdot \concat(h_v^{k-1}, h_{\mathcal{N}(v)}^k)\right)$
-    \EndFor
-    \State $h_v^k \leftarrow h_v^k / \|h_v^k\|_2, \forall v \in V$ \Comment{Optional normalization}
-\EndFor
-\State \Return $z_v \leftarrow h_v^K, \forall v \in V$
-\end{algorithmic}
-\end{algorithm}
+GraphSAGE (Graph SAmple and aggreGatE) implements inductive learning through neighbor sampling and learned aggregation. At each layer $k$, node $v$ updates its representation by sampling neighbors, aggregating their embeddings, concatenating with its own embedding, and applying a learned transformation with non-linearity.
 
 \subsection{Neighbor Sampling}
 \label{subsec:sampling}
 
-A critical component for scalability is \textbf{neighbor sampling}. Instead of aggregating over all neighbors (which can be prohibitively expensive for high-degree nodes), GraphSAGE uniformly samples a fixed-size set of neighbors at each layer.
-
-For a $K$-layer model with sample sizes $S_1, S_2, \ldots, S_K$, the computational complexity per node is $O(\prod_{k=1}^{K} S_k)$, independent of the actual node degrees in the graph.
+For scalability, GraphSAGE uniformly samples a fixed-size set of neighbors at each layer rather than using all neighbors. For a $K$-layer model with sample sizes $S_1, \ldots, S_K$, per-node complexity is $O(\prod_{k=1}^{K} S_k)$, independent of actual node degrees.
 
 \subsection{Aggregator Functions}
 \label{subsec:aggregators}
 
-GraphSAGE explores several aggregator architectures:
-
-\begin{itemize}
-    \item \textbf{Mean aggregator:} Simply takes the element-wise mean of neighbor embeddings:
-    \begin{equation}
-        \agg_{\text{mean}} = \frac{1}{|\mathcal{N}(v)|} \sum_{u \in \mathcal{N}(v)} h_u^{k-1}
-    \end{equation}
-    
-    \item \textbf{LSTM aggregator:} Applies an LSTM to a random permutation of neighbors, providing more expressive power at the cost of losing strict permutation invariance.
-    
-    \item \textbf{Pooling aggregator:} Applies a neural network to each neighbor followed by element-wise max pooling:
-    \begin{equation}
-        \agg_{\text{pool}} = \max\left(\{\sigma(W_{\text{pool}} h_u + b), \forall u \in \mathcal{N}(v)\}\right)
-    \end{equation}
-\end{itemize}
-
-\subsection{Training Objective}
-\label{subsec:training}
-
-For supervised node classification, GraphSAGE is trained end-to-end using cross-entropy loss:
-\begin{equation}
-    \mathcal{L} = -\sum_{v \in V_{\text{train}}} \sum_{c=1}^{C} y_{v,c} \log(\hat{y}_{v,c})
-\end{equation}
-where $y_{v,c}$ is the ground-truth label and $\hat{y}_{v,c}$ is the predicted probability for class $c$.
+GraphSAGE supports several aggregators: \textbf{mean} (element-wise average), \textbf{LSTM} (sequential processing of a random neighbor permutation), and \textbf{pooling} (neural network followed by max-pooling). The mean aggregator is simplest and often effective; pooling provides more expressiveness.
 
 %=======================================================================
 \section{Implementation}
