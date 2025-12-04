@@ -40,7 +40,7 @@
         \end{column}
         \begin{column}{0.42\textwidth}
             \centering
-            \includegraphics[width=1.2\textwidth]{img/graph_prediction_light.png}
+            \includegraphics[width=1.2\textwidth]{img/gnn_intro_node_level_task.png}
         \end{column}
     \end{columns}
 \end{frame}
@@ -57,7 +57,7 @@
     
     \vspace{5pt}
     \centering
-    \includegraphics[width=0.75\textwidth]{img/gnn_layer_transform_light.png}
+    \includegraphics[width=0.75\textwidth]{img/gnn_intro_whatisgnn.png}
 \end{frame}
 
 \begin{frame}{Message Passing: The Core Idea}
@@ -68,32 +68,34 @@
         \item \textbf{Update:} Apply learned transform using the aggregated vector
     \end{enumerate}
     
-    \vspace{10pt}
+    \vspace{6pt}
+    \centering
+    \includegraphics[width=0.85\textwidth]{img/gnn_intro_message_passing.png}
+\end{frame}
+
+\begin{frame}{Message Passing: Notation}
     \begin{block}{Message Passing Equation}
         \centering
         $h_v^{(k)} = \sigma\left( W \cdot \left[ h_v^{(k-1)} \, , \, \mathrm{AGG}\left(\{ h_u : u \in N(v) \}\right) \right] \right)$
     \end{block}
     
-    \vspace{10pt}
-    \small
-    \textit{Analogy: CNNs aggregate over fixed local pixel neighborhoods; GNNs aggregate over variable-size neighbor sets.}
-\end{frame}
-
-\begin{frame}{Message Passing: Notation}
+    \vspace{4pt}
     \begin{columns}
         \begin{column}{0.48\textwidth}
+            \small
             \begin{itemize}
-                \item $h_v^{(k)}$ — Representation of node $v$ at layer $k$
-                \item $h_u$ — Representation of neighbor node $u$
-                \item $N(v)$ — Set of neighbor nodes of $v$
-                \item $k$ — Layer index (message-passing hops)
+                \item $h_v^{(k)}$ — Node $v$ repr. at layer $k$
+                \item $h_u$ — Neighbor node $u$ repr.
+                \item $N(v)$ — Neighbors of $v$
+                \item $k$ — Layer index (hops)
             \end{itemize}
         \end{column}
         \begin{column}{0.48\textwidth}
+            \small
             \begin{itemize}
-                \item $\mathrm{AGG}(\cdot)$ — Aggregator function (mean, sum, max, LSTM)
+                \item $\mathrm{AGG}(\cdot)$ — Aggregator (mean, sum, max)
                 \item $W$ — Learnable weight matrix
-                \item $\sigma$ — Non-linear activation (ReLU, tanh)
+                \item $\sigma$ — Activation (ReLU, tanh)
             \end{itemize}
         \end{column}
     \end{columns}
