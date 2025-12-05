@@ -118,9 +118,5 @@
     <text x="105" y="180" text-anchor="middle" font-family="Arial" font-size="9" fill="#64748b">information flow</text>
   </g>
 
-  <!-- Bottom insight box -->
-  <rect x="140" y="220" width="400" height="32" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="340" y="241" text-anchor="middle" font-family="Arial" font-size="12" fill="#166534" font-weight="bold">
-    Local neighborhood structure reveals node's role in the graph!
-  </text>
+  <!-- Bottom insight box removed per request -->
 </svg>
