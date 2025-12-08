@@ -364,12 +364,380 @@
 \section{Results}
 %-----------------------------------------------------------------------
 
-\begin{frame}{Results}
-    \centering
-    \vspace{30pt}
-    {\Large \textit{Experimental results coming soon...}}
-    \vspace{30pt}
+\begin{frame}{Experimental Setup}
+    \textbf{Hardware:} MeluXina Supercomputer (Luxembourg National Supercomputer)
+    \begin{itemize}
+        \item 4× NVIDIA A100 (40GB) per node
+        \item HDR200 InfiniBand (400 Gb/s aggregate bandwidth)
+    \end{itemize}
+
+    \vspace{10pt}
+    \textbf{Benchmarking Focus:}
+    \begin{enumerate}
+        \item \textbf{Mini-batch sampling:} Batch size impact on time \& memory
+        \item \textbf{Neighbor sampling:} Fanout strategies (accuracy vs. efficiency)
+        \item \textbf{GPU scaling:} 1/2/4/8 GPU distributed training
+    \end{enumerate}
 \end{frame}
+
+%-----------------------------------------------------------------------
+\subsection{Mini-batch Sampling}
+%-----------------------------------------------------------------------
+
+\begin{frame}{Mini-batch Benchmarking: Configurations}
+    \begin{columns}
+        \begin{column}{0.6\textwidth}
+            \textbf{What's being tested?}
+            
+            \vspace{8pt}
+            How does \textbf{batch size} and \textbf{gradient accumulation} affect:
+            \begin{itemize}
+                \item Training time per epoch
+                \item Peak GPU memory usage
+                \item Overall training efficiency
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.4\textwidth}
+            \footnotesize
+            \begin{tabular}{|l|c|}
+            \hline
+            \textbf{Batch Size} & \textbf{Accum. Steps} \\
+            \hline
+            16 & 5 \\
+            \hline
+            32 & 5 \\
+            \hline
+            64 & 5 \\
+            \hline
+            64 & 1, 2, 3, 4 \\
+            \hline
+            \textbf{128} & \textbf{5} \\
+            \hline
+            128 & 1, 2, 3, 4 \\
+            \hline
+            160 & 5 \\
+            \hline
+            192 & 5 \\
+            \hline
+            256 & 5 \\
+            \hline
+            512 & 5 \\
+            \hline
+            \end{tabular}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Batch Size: Training Time}
+    \begin{columns}
+        \begin{column}{0.58\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{img/time_per_epoch_vs_batch_size.png}
+        \end{column}
+        \begin{column}{0.38\textwidth}
+            \textbf{Key Findings:}
+            \begin{itemize}
+                \item Inverse relationship: larger batch = faster training
+                \item Better GPU utilization with larger batches
+                \item Reduced forward pass / backward pass overhead
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Batch Size: Memory Consumption}
+    \begin{columns}
+        \begin{column}{0.58\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{img/peak_memory_vs_batch_size.png}
+        \end{column}
+        \begin{column}{0.38\textwidth}
+            \textbf{Key Findings:}
+            \begin{itemize}
+                \item \textbf{Max batch size:} 160
+                \item Uses $\sim$32GB (7.5GB system overhead)
+                \item Bigger batches go OOM
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%-----------------------------------------------------------------------
+\subsection{Neighbor Sampling}
+%-----------------------------------------------------------------------
+
+\begin{frame}{Neighbor Sampling: Configurations}
+    \begin{columns}
+        \begin{column}{0.7\textwidth}
+            \textbf{What's being tested?}
+            
+            \vspace{8pt}
+            How do different \textbf{fanout strategies} affect:
+            \begin{itemize}
+                \item Test accuracy
+                \item Training time per epoch
+                \item GPU memory usage
+            \end{itemize}
+            
+            \vspace{12pt}
+            \textbf{Fanout} = neighbors sampled per layer\\
+ 
+            \textbf{Total Fanout} = product across all layers
+            $$F_{\text{total}} = \prod_{i=1}^{5} L_i$$
+            
+
+        \end{column}
+        \begin{column}{0.3\textwidth}
+            \tiny
+            \begin{tabular}{|c|c|c|c|c|}
+            \hline
+            \textbf{L1} & \textbf{L2} & \textbf{L3} & \textbf{L4} & \textbf{L5} \\
+            \hline
+            50 & 0 & 0 & 0 & 0 \\
+            \hline
+            15 & 0 & 0 & 0 & 0 \\
+            \hline
+            15 & 10 & 0 & 0 & 0 \\
+            \hline
+            15 & 10 & 10 & 0 & 0 \\
+            \hline
+            15 & 10 & 10 & 10 & 0 \\
+            \hline
+            \textbf{15} & \textbf{10} & \textbf{10} & \textbf{10} & \textbf{10} \\
+            \hline
+            10 & 10 & 10 & 10 & 10 \\
+            \hline
+            12 & 12 & 12 & 12 & 12 \\
+            \hline
+            15 & 15 & 15 & 15 & 15 \\
+            \hline
+            20 & 15 & 10 & 5 & 3 \\
+            \hline
+            15 & 15 & 10 & 5 & 5 \\
+            \hline
+            15 & 15 & 15 & 5 & 5 \\
+            \hline
+            12 & 11 & 10 & 9 & 8 \\
+            \hline
+            5 & 5 & 5 & 5 & 5 \\
+            \hline
+            3 & 5 & 10 & 15 & 20 \\
+            \hline
+            30 & 10 & 5 & 3 & 3 \\
+            \hline
+            \end{tabular}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Neighbor Sampling: Accuracy vs. Time}
+    \begin{columns}
+        \begin{column}{0.58\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{img/neighbor_efficiency_time_vs_accuracy.png}
+        \end{column}
+        \begin{column}{0.38\textwidth}
+            \textbf{Key Findings:}
+            \begin{itemize}
+                \item Upper-left = optimal
+                \item Moderate fanouts best balance
+                \item Aggressive sampling hurts accuracy or stability
+                \item Very high fanouts: no proportional gains
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Neighbor Sampling: Memory vs. Fanout}
+    \begin{columns}
+        \begin{column}{0.58\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{img/neighbor_memory_vs_fanout.png}
+        \end{column}
+        \begin{column}{0.38\textwidth}
+            \textbf{Key Findings:}
+            \begin{itemize}
+                \item Rapid memory growth with fanout
+                \item Must balance receptive field vs. memory
+                \item High fanouts hit memory limits and go OOM
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Top 5 Neighbor Configurations}
+    \centering
+    \small
+    \begin{tabular}{|c|l|c|c|}
+    \hline
+    \textbf{Rank} & \textbf{Neighbor Sampling} & \textbf{Test Acc} & \textbf{Time (h)} \\
+    \hline
+    1 & [15, 15, 15, 5, 5] & 0.8121 & 14.56 \\
+    \hline
+    2 & [15, 10, 10, 10, 0] & 0.8114 & \textbf{7.22} \\
+    \hline
+    \textcolor{orange}{3} & \textcolor{orange}{[15, 10, 10, 10, 10]} & \textcolor{orange}{0.8096} & \textcolor{orange}{19.53} \\
+    \hline
+    4 & [10, 10, 10, 10, 10] & 0.8088 & 16.46 \\
+    \hline
+    5 & [20, 15, 10, 5, 3] & 0.8055 & 11.60 \\
+    \hline
+    \end{tabular}
+    
+    \vspace{10pt}
+    
+    {\footnotesize \textbf{Key insight:} [15,10,10,10,0] nearly matches accuracy, and \textbf{2.7× faster}}
+\end{frame}
+
+%-----------------------------------------------------------------------
+\subsection{GPU Scaling}
+%-----------------------------------------------------------------------
+
+\begin{frame}{GPU Scaling: Configurations}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \textbf{What's being tested?}
+            
+            \vspace{8pt}
+            How does \textbf{distributed training} scale across:
+            \begin{itemize}
+                \item 1/2/4 GPUs per node
+                \item 4 GPUs across 2 nodes (8 GPUs total)
+            \end{itemize}
+            
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \footnotesize
+            \begin{tabular}{|l|l|}
+            \hline
+            \textbf{Configuration} & \textbf{Setup} \\
+            \hline
+            1 GPU & 1 node \\
+            \hline
+            2 GPUs & 1 node \\
+            \hline
+            4 GPUs & 1 node \\
+            \hline
+            8 GPUs & 2 nodes \\
+            \hline
+            \multicolumn{2}{|c|}{\textbf{Fixed Hyperparameters}} \\
+            \hline
+            Batch size & 128 \\
+            \hline
+            Neighbors & {[}15,10,10,10,10{]} \\
+            \hline
+            Epochs & 10 \\
+            \hline
+            \end{tabular}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{GPU Scaling: Training Time}
+    \begin{columns}
+        \begin{column}{0.58\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{img/scaling_time_per_epoch.png}
+        \end{column}
+        \begin{column}{0.38\textwidth}
+            \textbf{Key Findings:}
+            \begin{itemize}
+                \item \textbf{1→2 GPUs:}\\ 1.93× (96.5\% efficiency)
+                \item \textbf{1→4 GPUs:}\\ 3.73× (93\% efficiency)
+                \item \textbf{1→8 GPUs:}\\ 7.1× (89\% efficiency)
+
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{GPU Scaling: Training Loss}
+    \begin{columns}
+        \begin{column}{0.58\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{img/scaling_train_loss.png}
+        \end{column}
+        \begin{column}{0.38\textwidth}
+            \textbf{Key Findings:}
+            \begin{itemize}
+                \item Loss increases with more GPUs
+                \item Cause: larger effective batch size
+                \item Wider minima, reduced gradient noise
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%-----------------------------------------------------------------------
+\section{Discussion}
+%-----------------------------------------------------------------------
+
+\begin{frame}{Bottlenecks Discovered}
+    \begin{itemize}
+        \item \textbf{Memory wall:} Neighbor sampling expansion dominates memory usage
+        \begin{itemize}
+            \item Fanout [15,10,10,10,10] = 150k neighbors per seed node
+            \item 128 batch size × 150k expansion = 19.2M nodes per batch
+            \item Sampled subgraph + activations >> model parameters (8MB)
+        \end{itemize}
+        
+        \vspace{6pt}
+        \item \textbf{Inter-node communication:} InfiniBand NCCL all-reduce overhead
+        \begin{itemize}
+            \item 4 GPUs (1 node): 93\% efficiency
+            \item 8 GPUs (2 nodes): 89\% efficiency (4\% degradation)
+        \end{itemize}
+        
+        \vspace{6pt}
+        \item \textbf{Loss convergence trade-off:} Larger effective batch sizes hurt convergence
+        \begin{itemize}
+            \item Training loss increases with GPU count
+            \item Wider minima, reduced gradient noise
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{What Worked Well}
+    \begin{itemize}
+        \item \textbf{DDP implementation:} Seamless gradient synchronization across GPUs
+        \begin{itemize}
+            \item PyTorch DDP handles all-reduce automatically
+            \item Minimal code changes from single-GPU baseline
+        \end{itemize}
+        
+        \vspace{6pt}
+        \item \textbf{Strong intra-node scaling:} Excellent up to 4 GPUs
+        \begin{itemize}
+            \item Linear speedups: 1→4 GPUs = 3.73× (93\% efficiency)
+            \item PCIe/NVLink bandwidth sufficient for this dataset size
+        \end{itemize}
+        
+        \vspace{6pt}
+        \item \textbf{Containerization:} Reproducibility \& portability
+        \begin{itemize}
+            \item Apptainer/Singularity ensures consistent environment
+            \item Complex PyG dependencies properly managed
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Lessons Learned}
+    \textbf{Implementing High-Performance Systems:}
+    
+    \vspace{8pt}
+    \begin{enumerate}
+        \item \textbf{Profile first, optimize second:} Memory was the true bottleneck, not computation
+        
+        \vspace{4pt}
+        \item \textbf{Trade-offs are everywhere:} No free lunch -> accuracy, speed, memory, communication always compete
+        
+        \vspace{4pt}
+        \item \textbf{Reproducibility matters:} Containerization and fixed seeds essential for scientific HPC work
+        
+    \end{enumerate}
+\end{frame}
+
 
 %-----------------------------------------------------------------------
 \QApage
