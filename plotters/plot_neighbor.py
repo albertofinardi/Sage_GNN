@@ -1,18 +1,18 @@
-# Modules needed on Meluxina
-# module load geopandas/1.0.1-foss-2024a
-# module load Seaborn/0.13.2-gfbf-2024a
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import os
+from pathlib import Path
+
+# Get the root directory (parent of plotters directory)
+ROOT_DIR = Path(__file__).parent.parent
+PLOTS_DIR = ROOT_DIR / "plots"
 
 # Create plots directory if it doesn't exist
-os.makedirs("plots", exist_ok=True)
+PLOTS_DIR.mkdir(exist_ok=True)
 
 # Load results
-results = pd.read_csv("benchmark/results_neighbor.csv")
+results = pd.read_csv(ROOT_DIR / "benchmark" / "results_neighbor.csv")
 
 # Calculate Total Fanout Factor (product of all neighbor samples, excluding zeros)
 def calculate_fanout(num_neighbors_str):
@@ -70,13 +70,13 @@ ax.set_title("Accuracy vs. Throughput: Pareto Frontier\n(Color = Total Fanout Fa
 ax.grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("plots/neighbor_accuracy_vs_throughput.png", dpi=300, bbox_inches='tight')
+plt.savefig(PLOTS_DIR / "neighbor_accuracy_vs_throughput.png", dpi=300, bbox_inches='tight')
 plt.close()
-print("    ✓ Saved: plots/neighbor_accuracy_vs_throughput.png")
+print(f"    ✓ Saved: {PLOTS_DIR / 'neighbor_accuracy_vs_throughput.png'}")
 
 
 # ============================================================================
-# PLOT 3: Top 5 Test Accuracies Table (LaTeX)
+# PLOT 2: Top 5 Test Accuracies Table (LaTeX)
 # ============================================================================
 print("\nCreating: Top 5 Test Accuracies LaTeX Table...")
 
@@ -109,37 +109,23 @@ latex_table += r"""\bottomrule
 """
 
 # Save to file
-with open("plots/neighbor_top5_accuracy_table.tex", "w") as f:
+with open(PLOTS_DIR / "neighbor_top5_accuracy_table.tex", "w") as f:
     f.write(latex_table)
 
-print("    ✓ Saved: plots/neighbor_top5_accuracy_table.tex")
+print(f"    ✓ Saved: {PLOTS_DIR / 'neighbor_top5_accuracy_table.tex'}")
 
 # ============================================================================
-# PLOT 4: Memory Usage vs. Total Fanout Factor
+# PLOT 3: Memory Usage vs. Total Fanout Factor
 # ============================================================================
 print("\nCreating: Memory Usage vs. Total Fanout Factor...")
 fig, ax = plt.subplots(figsize=(10, 6))
 
-# Add the OOM point manually (12 12 12 12 12 with peak_gpu_memory_mb = 35000)
-# Total fanout for 12 12 12 12 12 = 248832
-oom_fanout = 12 * 12 * 12 * 12 * 12
-oom_memory = 35000
-
-# # Combine valid results with OOM point for fitting
-# valid_fanout = np.append(results_valid['total_fanout'].values, oom_fanout)
-# valid_memory = np.append(results_valid['peak_gpu_memory_mb'].values, oom_memory)
-
-
 valid_fanout = results_valid['total_fanout'].values
 valid_memory = results_valid['peak_gpu_memory_mb'].values
+
 # Plot memory usage (valid runs)
 ax.plot(results_valid['total_fanout'], results_valid['peak_gpu_memory_mb'], 
         marker='o', linewidth=0, markersize=10, color='steelblue', alpha=0.7, label='Successful runs')
-
-# # Plot OOM point
-# ax.plot(oom_fanout, oom_memory, 
-#         marker='x', linewidth=0, markersize=15, color='red', alpha=0.9, 
-#         markeredgewidth=3, label='OOM (12,12,12,12,12)')
 
 # Add trend line using square root fit (always increasing, sublinear growth)
 # Fit: memory = a * sqrt(fanout) + b
@@ -165,12 +151,12 @@ ax.set_title("Peak GPU Memory vs. Total Fanout Factor", fontsize=14, fontweight=
 ax.grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("plots/neighbor_memory_vs_fanout.png", dpi=300, bbox_inches='tight')
+plt.savefig(PLOTS_DIR / "neighbor_memory_vs_fanout.png", dpi=300, bbox_inches='tight')
 plt.close()
-print("    ✓ Saved: plots/neighbor_memory_vs_fanout.png")
+print(f"    ✓ Saved: {PLOTS_DIR / 'neighbor_memory_vs_fanout.png'}")
 
 # ============================================================================
-# PLOT 5: Training Efficiency (Time vs Accuracy)
+# PLOT 4: Training Efficiency (Time vs Accuracy)
 # ============================================================================
 print("\nCreating: Training Efficiency (Time per Epoch vs Accuracy)...")
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -195,10 +181,9 @@ ax.set_title("Training Efficiency: Time vs. Accuracy", fontsize=14, fontweight='
 ax.grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("plots/neighbor_efficiency_time_vs_accuracy.png", dpi=300, bbox_inches='tight')
+plt.savefig(PLOTS_DIR / "neighbor_efficiency_time_vs_accuracy.png", dpi=300, bbox_inches='tight')
 plt.close()
-print("    ✓ Saved: plots/neighbor_efficiency_time_vs_accuracy.png")
-
+print(f"    ✓ Saved: {PLOTS_DIR / 'neighbor_efficiency_time_vs_accuracy.png'}")
 
 # ============================================================================
 # SUMMARY STATISTICS
@@ -226,7 +211,7 @@ if len(results_with_test) > 0:
     print(f"  Neighbor Sampling: {best_config['num_neighbors']}")
     print(f"  Total Fanout: {int(best_config['total_fanout'])}")
     print(f"  Test Accuracy: {best_config['test_acc']:.4f}")
-    print(f"  Training Time: {best_config['training_time_s']/60:.2f}")
+    print(f"  Training Time: {best_config['training_time_s']/60:.2f} min")
     print(f"  Time per Epoch: {best_config['time_per_epoch_sec']:.2f}s")
     print(f"  Throughput: {best_config['throughput_nodes_sec']:.2f} nodes/s")
     print(f"  Peak GPU Memory: {best_config['peak_gpu_memory_mb']:.1f} MB")
@@ -239,5 +224,5 @@ print(f"  Avg Peak Memory: {results_valid['peak_gpu_memory_mb'].mean():.1f} MB (
 print(f"  Avg Total Fanout: {results_valid['total_fanout'].mean():.1f} (±{results_valid['total_fanout'].std():.1f})")
 
 print("\n" + "="*80)
-print("All plots saved to plots/ directory")
+print(f"All plots saved to {PLOTS_DIR}/")
 print("="*80)

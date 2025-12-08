@@ -1,18 +1,18 @@
-# Modules needed on Meluxina
-# module load geopandas/1.0.1-foss-2024a
-# module load Seaborn/0.13.2-gfbf-2024a
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
-import numpy as np
+from pathlib import Path
 
-# Create images directory if it doesn't exist
-os.makedirs("plots", exist_ok=True)
+# Get the root directory (parent of plotters directory)
+ROOT_DIR = Path(__file__).parent.parent
+PLOTS_DIR = ROOT_DIR / "plots"
+
+# Create plots directory if it doesn't exist
+PLOTS_DIR.mkdir(exist_ok=True)
 
 # Load results
-results = pd.read_csv("benchmark/results_minibatch.csv")
+results = pd.read_csv(ROOT_DIR / "benchmark" / "results_minibatch.csv")
 
 # Filter to only accum_steps=5
 results = results[results['accum_steps'] == 5].copy()
@@ -38,11 +38,9 @@ ax.set_ylabel("Time per Epoch (seconds)", fontsize=13)
 ax.set_title("Time per Epoch vs Batch Size", fontsize=14, fontweight='bold')
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig("images/time_per_epoch_vs_batch_size.png", dpi=300, bbox_inches='tight')
+plt.savefig(PLOTS_DIR / "batch_time_per_epoch_vs_batch_size.png", dpi=300, bbox_inches='tight')
 plt.close()
-print("    ✓ Saved: images/time_per_epoch_vs_batch_size.png")
-
-
+print(f"    ✓ Saved: {PLOTS_DIR / 'batch_time_per_epoch_vs_batch_size.png'}")
 
 # Peak GPU Memory vs Batch Size
 print("\nCreating: Peak GPU Memory vs Batch Size...")
@@ -65,9 +63,9 @@ ax.set_title("Peak GPU Memory Usage vs Batch Size", fontsize=14, fontweight='bol
 ax.grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("images/peak_memory_vs_batch_size.png", dpi=300, bbox_inches='tight')
+plt.savefig(PLOTS_DIR / "batch_peak_memory_vs_batch_size.png", dpi=300, bbox_inches='tight')
 plt.close()
-print("    ✓ Saved: images/peak_memory_vs_batch_size.png")
+print(f"    ✓ Saved: {PLOTS_DIR / 'batch_peak_memory_vs_batch_size.png'}")
 
 # Plot 3: Throughput vs Batch Size
 print("\nCreating: Throughput vs Batch Size...")
@@ -79,11 +77,9 @@ ax.set_ylabel("Throughput (nodes/second)", fontsize=13)
 ax.set_title("Training Throughput vs Batch Size", fontsize=14, fontweight='bold')
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig("images/throughput_vs_batch_size.png", dpi=300, bbox_inches='tight')
+plt.savefig(PLOTS_DIR / "batch_throughput_vs_batch_size.png", dpi=300, bbox_inches='tight')
 plt.close()
-print("    ✓ Saved: images/throughput_vs_batch_size.png")
-
-
+print(f"    ✓ Saved: {PLOTS_DIR / 'batch_throughput_vs_batch_size.png'}")
 
 # Print summary statistics
 print("\n" + "="*80)
@@ -109,7 +105,6 @@ if len(results_with_test) > 0:
     print(f"  Test Accuracy: {best_config['test_acc']:.4f}")
     print(f"  Batch Size: {int(best_config['batch_size'])}")
     print(f"  Accum Steps: {int(best_config['accum_steps'])}")
-    print(f"  Effective Batch Size: {int(best_config['effective_batch_size'])}")
     print(f"  Time per Epoch: {best_config['time_per_epoch_sec']:.2f}s")
     print(f"  Throughput: {best_config['throughput_nodes_sec']:.2f} nodes/s")
     print(f"  Peak GPU Memory: {best_config['peak_gpu_memory_mb']:.1f} MB")
@@ -119,8 +114,6 @@ print(f"  Avg Time per Epoch: {results_valid['time_per_epoch_sec'].mean():.2f}s 
 print(f"  Avg Throughput: {results_valid['throughput_nodes_sec'].mean():.2f} nodes/s (±{results_valid['throughput_nodes_sec'].std():.2f})")
 print(f"  Avg Peak Memory: {results_valid['peak_gpu_memory_mb'].mean():.1f} MB (±{results_valid['peak_gpu_memory_mb'].std():.1f})")
 
-
 print("\n" + "="*80)
-print("All plots saved to images/ directory")
+print(f"All plots saved to {PLOTS_DIR}/")
 print("="*80)
-
