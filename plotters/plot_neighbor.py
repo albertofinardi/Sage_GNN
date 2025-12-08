@@ -82,7 +82,7 @@ print("\nCreating: Top 5 Test Accuracies LaTeX Table...")
 
 # Get top 5 by test accuracy
 top5 = results_valid.nlargest(5, 'test_acc')[['id', 'num_neighbors', 'test_acc', 'training_time_s']].copy()
-top5['training_time_min'] = top5['training_time_s'] / 60
+top5['training_time_hours'] = top5['training_time_s'] / 60 / 60
 
 # Create LaTeX table
 latex_table = r"""\begin{table}[htbp]
@@ -91,7 +91,7 @@ latex_table = r"""\begin{table}[htbp]
 \label{tab:top5_accuracy}
 \begin{tabular}{clcc}
 \toprule
-\textbf{Rank} & \textbf{Neighbor Sampling} & \textbf{Test Acc} & \textbf{Training Time} \\
+\textbf{Rank} & \textbf{Neighbor Sampling} & \textbf{Test Acc} & \textbf{Training Time (h)} \\
 \midrule
 """
 
@@ -99,9 +99,9 @@ for i, (idx, row) in enumerate(top5.iterrows(), 1):
     neighbor_str = row['num_neighbors'].replace(' ', ', ')
     # Bold the baseline (id=0)
     if row['id'] == 0:
-        latex_table += f"{i} & \\textbf{{{neighbor_str}}} & \\textbf{{{row['test_acc']:.4f}}} & \\textbf{{{row['training_time_min']:.2f}}} \\\\\n"
+        latex_table += f"{i} & \\textbf{{{neighbor_str}}} & \\textbf{{{row['test_acc']:.4f}}} & \\textbf{{{row['training_time_hours']:.2f}}} \\\\\n"
     else:
-        latex_table += f"{i} & {neighbor_str} & {row['test_acc']:.4f} & {row['training_time_min']:.2f} \\\\\n"
+        latex_table += f"{i} & {neighbor_str} & {row['test_acc']:.4f} & {row['training_time_hours']:.2f} \\\\\n"
 
 latex_table += r"""\bottomrule
 \end{tabular}
