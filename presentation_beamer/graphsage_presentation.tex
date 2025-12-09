@@ -1,7 +1,9 @@
+% Ensure xcolor options are set before any class/package loads it
+\PassOptionsToPackage{usenames,dvipsnames}{xcolor}
 \documentclass{beamer}
 \usepackage[unilu,en]{collegeBeamer}
 \usepackage[backend=biber]{biblatex}
-\usepackage[usenames,dvipsnames]{xcolor}
+%\usepackage[usenames,dvipsnames]{xcolor}
 \setbeamertemplate{footline}[frame number]
 \usepackage{graphicx}
 \usepackage{tikz}
