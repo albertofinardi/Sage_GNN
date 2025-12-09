@@ -9,6 +9,8 @@
 \usepackage{tikz}
 \usetikzlibrary{calc, arrows.meta, intersections, patterns, positioning, shapes.misc, shapes.geometric, fadings, through, decorations.pathreplacing}
 \usepackage{etoolbox}
+\usepackage{booktabs}
+\usepackage{fontawesome5}
 
 \addbibresource{references.bib}
 
@@ -355,11 +357,109 @@
 \section{Hyperparameters}
 %-----------------------------------------------------------------------
 
-\begin{frame}{Hyperparameters}
+\begin{frame}{Overview}
+    \textbf{\faIcon{bullseye} Goal:} Scalable and reproducible hyperparameter optimization
+    
+    \vspace{14pt}
+    \textbf{Approach:}
+    \begin{itemize}
+        \item[\faIcon{box}] \textbf{Apptainer containers:}  reproducible environments
+        \item[\faIcon{server}] \textbf{SLURM job arrays:} parallel execution across configs
+        \item[\faIcon{file-csv}] \textbf{CSV-driven pipeline:} configuration \& result logging
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Benchmark Pipeline}
     \centering
-    \vspace{30pt}
-    {\Large \textit{Hyperparameter tuning details coming soon...}}
-    \vspace{30pt}
+    \begin{tikzpicture}[scale=0.78, every node/.style={transform shape}]
+    
+    % Styles
+    \tikzset{
+        block/.style={rectangle, draw, thick, fill=blue!15, minimum width=2.2cm, minimum height=0.9cm, align=center, rounded corners=3pt},
+        data/.style={rectangle, draw, thick, fill=yellow!25, minimum width=2cm, minimum height=0.7cm, align=center, rounded corners=2pt},
+        arrow/.style={->, >=Stealth, thick, color=gray!70},
+        label/.style={font=\scriptsize, align=center, color=gray!80}
+    }
+    
+    % CSV Config
+    \node[data] (csv) at (-5, 2) {\faIcon{file-csv} \texttt{hyperparams.csv}};
+    
+    % SLURM
+    \node[block, fill=purple!20] (slurm) at (-5, 0) {\faIcon{server} \textbf{SLURM}\\Job Array};
+    
+    % Parallel jobs
+    \node[block, fill=green!20, minimum width=1.5cm] (j0) at (-2, 1) {Job 0};
+    \node[block, fill=green!20, minimum width=1.5cm] (j1) at (-2, 0) {Job 1};
+    \node[block, fill=green!20, minimum width=1.5cm] (jn) at (-2, -1) {Job N};
+    \node at (-2, 0.5) {$\vdots$};
+    \node at (-2, -0.5) {$\vdots$};
+    
+    % Container + Training
+    \node[block, fill=cyan!20, minimum width=2.5cm] (container) at (1.5, 0) {\faIcon{box} \textbf{Apptainer}\\DDP Training};
+    
+    % GPU box
+    \node[block, fill=orange!20, minimum width=2cm] (gpu) at (4.8, 0) {\faIcon{microchip} 4× A100\\GPUs};
+    
+    % Results
+    \node[data] (results) at (4.8, -2.5) {\faIcon{file-csv} \texttt{results.csv}};
+    
+    % Plotter
+    \node[block, fill=magenta!20, minimum width=2cm] (plotter) at (1.5, -2.5) {\faIcon{python} \texttt{plotter.py}};
+    
+    % Output plots
+    \node[data, fill=green!15] (plots) at (-2, -2.5) {\faIcon{chart-bar} \texttt{plot.png}};
+    
+    % Arrows
+    \draw[arrow] (csv) -- (slurm);
+    \draw[arrow] (slurm) -- (j0);
+    \draw[arrow] (slurm) -- (j1);
+    \draw[arrow] (slurm) -- (jn);
+    \draw[arrow] (j0) -- (container);
+    \draw[arrow] (j1) -- (container);
+    \draw[arrow] (jn) -- (container);
+    \draw[arrow] (container) -- (gpu);
+    \draw[arrow] (gpu) -- (results);
+    \draw[arrow] (results) -- (plotter);
+    \draw[arrow] (plotter) -- (plots);
+    
+    % Lock annotation
+    \node[label] at (6.5, -2.5) {\faIcon{lock}};
+    
+    \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Tunable Hyperparameters}
+    \centering
+    \small
+    \begin{tabular}{@{} l l l l @{}}
+    \toprule
+    & \textbf{Parameter} & \textbf{Default} & \textbf{Range Tested} \\
+    \midrule
+    \faIcon{cubes} & \texttt{batch\_size} & 128 & 16--512 \\
+    \faIcon{layer-group} & \texttt{accum\_steps} & 5 & 1--5 \\
+    \faIcon{project-diagram} & \texttt{num\_neighbors} & [15,10,10,10,10] & various \\
+    \midrule
+    \faIcon{bars} & \texttt{num\_layers} & 5 & \textcolor{gray}{fixed} \\
+    \faIcon{arrows-alt-h} & \texttt{hidden\_dim} & 256 & \textcolor{gray}{fixed} \\
+    \faIcon{tachometer-alt} & \texttt{lr} & 0.003 & \textcolor{gray}{fixed} \\
+    \faIcon{clock} & \texttt{epochs} & 150 & \textcolor{gray}{fixed} \\
+    \faIcon{hourglass-half} & \texttt{patience} & 10 & \textcolor{gray}{fixed} \\
+    \faIcon{random} & \texttt{dropout} & 0.5 & \textcolor{gray}{fixed} \\
+    \bottomrule
+    \end{tabular}
+    
+    \vspace{12pt}
+    \begin{columns}
+        \begin{column}{0.55\textwidth}
+            {\footnotesize \faIcon{calculator} \textbf{Effective batch size:}}\\
+            {\footnotesize \quad\texttt{batch\_size} $\times$ \texttt{accum\_steps} $\times$ \texttt{world\_size}}
+        \end{column}
+        \begin{column}{0.42\textwidth}
+            {\footnotesize \faIcon{flask} \textbf{Configs tested:} 34}\\
+            {\scriptsize \quad 15 batch $\cdot$ 15 neighbor $\cdot$ 4 scaling}
+        \end{column}
+    \end{columns}
 \end{frame}
 
 %-----------------------------------------------------------------------
