@@ -4,10 +4,10 @@
 \usepackage[unilu,en]{collegeBeamer}
 \usepackage[backend=biber]{biblatex}
 %\usepackage[usenames,dvipsnames]{xcolor}
-\setbeamertemplate{footline}[frame number]
+%\setbeamertemplate{footline}[frame number]
 \usepackage{graphicx}
 \usepackage{tikz}
-\usetikzlibrary{calc, arrows.meta, intersections, patterns, positioning, shapes.misc, shapes.geometric, fadings, through, decorations.pathreplacing}
+\usetikzlibrary{calc, arrows.meta, intersections, patterns, positioning, shapes.misc, shapes.geometric, fadings, through, decorations.pathreplacing, fit}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 \usepackage{etoolbox}
@@ -327,6 +327,7 @@
 
 \begin{frame}{System Architecture Diagram}
     \centering
+    \vspace{5pt}
     \begin{tikzpicture}[scale=0.82, every node/.style={transform shape}]
 
     % Styles
@@ -375,7 +376,7 @@
 
     \end{tikzpicture}
 
-    \vspace{3pt}
+    \vspace{10pt}
     {\footnotesize Multi-GPU DDP: data partitioned across 4 GPUs, gradients synced via NCCL}
 \end{frame}
 
@@ -448,6 +449,83 @@
         \end{itemize}
     \end{enumerate}
 \end{frame}
+
+\begin{frame}{DDP: Data Partitioned, Model Replicated}
+    \centering
+    \vspace{5pt}
+    \begin{tikzpicture}[scale=0.82, every node/.style={transform shape}]
+
+    % Styles
+    \tikzset{
+        boxstyle/.style={rectangle, draw, thick, minimum height=0.7cm, align=center},
+        databox/.style={boxstyle, fill=blue!20, minimum width=2.2cm, font=\scriptsize},
+        modelbox/.style={boxstyle, fill=green!25, minimum width=2.2cm, font=\scriptsize},
+        gpubox/.style={boxstyle, fill=orange!15, minimum width=1.5cm, font=\tiny},
+        arrow/.style={->, >=Stealth, thick},
+        redarrow/.style={<->, >=Stealth, very thick, red, dashed}
+    }
+
+    % Original dataset (left side, vertically centered)
+    \node[databox, minimum height=1.2cm] (fulldata) at (-6.5, 0.9) {
+        \textbf{Training Set}
+    };
+
+    % Original model (right side, vertically centered)
+    \node[modelbox, minimum height=1.2cm] (fullmodel) at (6.5, 0.9) {
+        \textbf{Model}\\
+        5 lay, 256 dim
+    };
+
+    % Data shards (left-center column) - increased vertical spacing
+    \node[databox] (d0) at (-3, 3.8) {Shard 0};
+    \node[databox] (d1) at (-3, 1.9) {Shard 1};
+    \node[databox] (d2) at (-3, 0) {Shard 2};
+    \node[databox] (d3) at (-3, -1.9) {Shard 3};
+
+    % Box around all shards to show they form complete dataset
+    \node[draw, thick, blue!60, dashed, rounded corners=5pt, inner sep=8pt, fit=(d0)(d3)] (shardbox) {};
+
+    % GPU labels (center) - increased vertical spacing
+    \node[gpubox] (g0) at (0, 3.8) {\textbf{GPU 0}\\4-8 workers};
+    \node[gpubox] (g1) at (0, 1.9) {\textbf{GPU 1}\\4-8 workers};
+    \node[gpubox] (g2) at (0, 0) {\textbf{GPU 2}\\4-8 workers};
+    \node[gpubox] (g3) at (0, -1.9) {\textbf{GPU 3}\\4-8 workers};
+
+    % Model replicas (right-center column) - increased vertical spacing
+    \node[modelbox] (m0) at (3, 3.8) {Model\\(full copy)};
+    \node[modelbox] (m1) at (3, 1.9) {Model\\(full copy)};
+    \node[modelbox] (m2) at (3, 0) {Model\\(full copy)};
+    \node[modelbox] (m3) at (3, -1.9) {Model\\(full copy)};
+
+    % Dashed line from original dataset to shard box
+    \draw[thick, dashed, blue!60] (fulldata) -- (shardbox);
+
+    % Arrows from original model to replicas
+    \draw[thick, dashed, gray] (fullmodel) -- (m0);
+    \draw[thick, dashed, gray] (fullmodel) -- (m1);
+    \draw[thick, dashed, gray] (fullmodel) -- (m2);
+    \draw[thick, dashed, gray] (fullmodel) -- (m3);
+
+    % Arrows connecting data -> GPU -> model
+    \foreach \i in {0,1,2,3} {
+        \draw[arrow] (d\i) -- (g\i);
+        \draw[arrow] (g\i) -- (m\i);
+    }
+
+    % Gradient sync (connecting all models, not sequential)
+    \draw[<->, >=Stealth, thick, red, dashed] (m0) -- (m1);
+    \draw[<->, >=Stealth, thick, red, dashed] (m1) -- (m2);
+    \draw[<->, >=Stealth, thick, red, dashed] (m2) -- (m3);
+
+    % Gradient sync label
+    \node[font=\tiny, red, align=center] at (2.25, 1) {All-Reduce};
+
+    \end{tikzpicture}
+
+    \vspace{10pt}
+    {\scriptsize Distinct data shard + model copy per GPU. Gradient synchronization after each batch.}
+\end{frame}
+
 
 %-----------------------------------------------------------------------
 \section{Hyperparameters}
