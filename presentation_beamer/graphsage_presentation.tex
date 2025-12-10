@@ -179,16 +179,11 @@
     \begin{itemize}
         \item \textbf{HPC Cluster:} MeluXina (Luxembourg National Supercomputer)
         \item \textbf{GPUs:} Up to 4x NVIDIA A100 (40GB) per node
+        \item \textbf{Network} InfiniBand + NVLink
         \item \textbf{Framework:} PyTorch 2.1.2 + PyTorch Geometric
         \item \textbf{Containerization:} Apptainer/Singularity for reproducibility
     \end{itemize}
 
-    \vspace{8pt}
-    \textbf{Model Architecture:}
-    \begin{itemize}
-        \item 5-layer GraphSAGE (SAGEConv + LayerNorm + ReLU)
-        \item Hidden dimension: 256, Dropout: 0.5
-    \end{itemize}
 \end{frame}
 
 \begin{frame}{System Architecture Diagram}
@@ -304,29 +299,6 @@
     \end{enumerate}
 \end{frame}
 
-\begin{frame}{Code Structure \& Containerization}
-    \textbf{Main Python Scripts:}
-    \begin{itemize}
-        \item \texttt{train\_graphsage.py} — Single-GPU training baseline
-        \item \texttt{train\_graphsage\_ddp.py} — Multi-GPU DDP training (enhanced)
-        \item \texttt{plot\_batch.py} — Batch size benchmarking analysis
-        \item \texttt{plot\_neighbor.py} — Neighbor sampling strategy analysis
-    \end{itemize}
-
-    \vspace{8pt}
-    \textbf{Apptainer Container:}
-    \begin{itemize}
-        \item \textbf{Base:} \texttt{pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime}
-        \item \textbf{Dependencies:} PyTorch Geometric, pyg-lib, OGB, torch-scatter/sparse
-        \item \textbf{Why containerize?}
-        \begin{itemize}
-            \item Complex dependency graph (CUDA-compiled extensions)
-            \item Reproducibility across HPC environments
-            \item Avoid version conflicts on shared cluster
-        \end{itemize}
-    \end{itemize}
-\end{frame}
-
 \begin{frame}{Why HPC and Parallelism?}
     \textbf{1. Scale of the Problem:}
     \begin{itemize}
@@ -341,7 +313,7 @@
     \begin{itemize}
         \item Model parameters: only $\sim$8 MB
         \item Sampled subgraphs + intermediate activations: \textbf{30-40 GB} per batch
-        \item Single GPU (40 GB) cannot handle large batches $\rightarrow$ slow training
+        \item Single GPU cannot handle large batches $\rightarrow$ slow training
     \end{itemize}
 
     \vspace{8pt}
@@ -360,7 +332,10 @@
 \begin{frame}{Overview}
     \textbf{\faIcon{bullseye} Goal:} Scalable and reproducible hyperparameter optimization
     
-    \vspace{14pt}
+    \vspace{8pt}
+    \textbf{Model Architecture:} GraphSAGE (SAGEConv + LayerNorm + ReLU)
+
+    \vspace{8pt}
     \textbf{Approach:}
     \begin{itemize}
         \item[\faIcon{box}] \textbf{Apptainer containers:}  reproducible environments
@@ -466,18 +441,13 @@
 \section{Results}
 %-----------------------------------------------------------------------
 
-\begin{frame}{Experimental Setup}
-    \textbf{Hardware:} MeluXina Supercomputer (Luxembourg National Supercomputer)
-    \begin{itemize}
-        \item 4× NVIDIA A100 (40GB) per node
-        \item HDR200 InfiniBand (400 Gb/s aggregate bandwidth)
-    \end{itemize}
+\begin{frame}{Benchmarking Focus}
 
-    \vspace{10pt}
-    \textbf{Benchmarking Focus:}
     \begin{enumerate}
         \item \textbf{Mini-batch sampling:} Batch size impact on time \& memory
+        \vspace{0.3cm}
         \item \textbf{Neighbor sampling:} Fanout strategies (accuracy vs. efficiency)
+        \vspace{0.3cm}
         \item \textbf{GPU scaling:} 1/2/4/8 GPU distributed training
     \end{enumerate}
 \end{frame}
