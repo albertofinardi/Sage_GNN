@@ -39,9 +39,6 @@ Final Report}
 This report documents our study and application of GraphSAGE (Graph SAmple and aggreGatE)~\cite{graphsage}, an inductive framework for learning node embeddings on large-scale graphs. We provide background on graph neural networks and the message passing paradigm, then describe how GraphSAGE addresses the scalability limitations of earlier approaches by learning aggregator functions rather than fixed node embeddings. We apply GraphSAGE to the ogbn-products benchmark dataset for node classification, detailing our implementation choices, hyperparameter tuning process, and experimental results.
 \end{abstract}
 
-\tableofcontents
-\newpage
-
 %=======================================================================
 \section{Introduction}
 \label{sec:introduction}
@@ -56,7 +53,7 @@ Machine learning on graphs encompasses node-level prediction (classifying indivi
 A Graph Neural Network (GNN) is a learnable transformation that updates node features using neural networks, respects graph structure by aggregating neighbor information, and is permutation invariant. GNNs build node representations through iterative \textbf{message passing}: at each layer, nodes gather neighbor embeddings, aggregate them with a permutation-invariant function, and apply a learned transformation.
 
 \paragraph{Limitations of Prior Methods.}
-Before GraphSAGE, methods like DeepWalk and node2vec~\cite{deepwalk,node2vec} learned embeddings via random walks but were \textit{transductive}---adding new nodes required retraining. GCNs~\cite{gcn} use message passing but operate on the full adjacency matrix, limiting scalability. The fundamental problem: \textbf{no method provided a parametric function to generate embeddings for unseen nodes.}
+Before GraphSAGE, methods like DeepWalk and node2vec~\cite{deepwalk,node2vec} learned embeddings via random walks but were \textit{transductive} - adding new nodes required retraining. GCNs~\cite{gcn} use message passing but operate on the full adjacency matrix, limiting scalability. The fundamental problem: \textbf{no method provided a parametric function to generate embeddings for unseen nodes.}
 
 \paragraph{The GraphSAGE Insight.}
 GraphSAGE's innovation is to learn a \textbf{function} that generates embeddings rather than learning fixed embeddings per node. By learning aggregator functions that sample and combine neighborhood features, GraphSAGE becomes \textbf{inductive}: the model generalizes to new nodes or graphs without retraining.
@@ -83,14 +80,98 @@ GraphSAGE supports several aggregators: \textbf{mean} (element-wise average), \t
 \label{sec:implementation}
 %=======================================================================
 
-\textit{Implementation details will be provided here, including our PyTorch/DGL code structure, data loading pipeline, and distributed training setup.}
+\subsection{Dataset and Challenge}
+\label{subsec:dataset}
+
+We evaluate GraphSAGE on the \textbf{ogbn-products} dataset~\cite{ogb}, an Amazon co-purchase network with 2.4M nodes, 61M edges, and 47 classes (8\% train, 2\% validation, 90\% test split). The scale makes full-batch training infeasible, necessitating \textbf{mini-batch training with neighbor sampling}.
+
+\subsection{Sampling Strategy}
+\label{subsec:sampling-strategy}
+
+We employ two complementary strategies: (1) \textbf{mini-batch sampling} selects fixed-size subsets of seed nodes per iteration (e.g., 128), and (2) \textbf{neighbor sampling} recursively samples neighbors at each layer with fanout $[S_1, \ldots, S_k]$. For fanout $[15, 10, 10, 10, 10]$, each seed expands to ${\sim}150{,}000$ neighbors, yielding ${\sim}19.2$M nodes per batch (128 seeds). This subgraph expansion dominates memory (30--40 GB) versus model parameters (${\sim}8$ MB).
+
+\subsection{Infrastructure and Software}
+\label{subsec:infrastructure}
+
+Experiments run on \textbf{MeluXina} supercomputer with 4$\times$ A100 GPUs (40 GB) per node and HDR200 InfiniBand interconnect. We use \textbf{PyTorch 2.1.2} (CUDA 12.1, cuDNN 8) with \textbf{PyTorch Geometric} for neighbor sampling (\texttt{NeighborLoader}) and GraphSAGE layers (\texttt{SAGEConv}). The pipeline is containerized via \textbf{Apptainer/Singularity} for reproducibility, bundling PyG, OGB, and compiled CUDA extensions.
+
+\subsection{Distributed Training}
+\label{subsec:ddp}
+
+To overcome single-GPU memory limits, we use \textbf{PyTorch DDP} for multi-GPU training. The model itself is small (${\sim}400$K parameters, ${\sim}8$ MB) and requires no model parallelism or partitioning - the memory bottleneck is the sampled subgraphs (30--40 GB per batch), not model size. Thus, \textbf{data parallelism} is the appropriate strategy, making DDP ideal and rendering frameworks like DeepSpeed unnecessary. SLURM launches independent ranks per GPU, each with its own model replica and \texttt{NeighborLoader} on partitioned training data. Processes communicate via \textbf{NCCL} (NVLink intra-node, InfiniBand inter-node). Each rank computes forward/backward passes independently; DDP automatically all-reduces gradients for synchronized parameter updates. This achieves 3.73$\times$ speedup on 4 GPUs (93\% efficiency) and ${\sim}7\times$ on 8 GPUs (89\% efficiency).
+
+\subsection{Model Architecture}
+\label{subsec:architecture}
+
+Our 5-layer GraphSAGE model uses \textbf{SAGEConv} (mean aggregation) + \textbf{LayerNorm} + \textbf{ReLU} + \textbf{Dropout} (0.5) per layer, with a final linear classifier. Architecture: 100-dim input (ogbn-products features) $\to$ 256-dim hidden $\to$ 47-dim output (${\sim}400$K parameters total).
 
 %=======================================================================
 \section{Hyperparameters}
 \label{sec:hyperparameters}
 %=======================================================================
 
-\textit{Hyperparameter tuning methodology and final configurations will be documented here, including learning rate schedules, hidden dimensions, number of layers, sample sizes, dropout rates, and batch sizes.}
+\subsection{Hyperparameter Tuning Methodology}
+\label{subsec:tuning-methodology}
+
+To systematically explore the hyperparameter space and identify optimal configurations for large-scale GraphSAGE training, we developed a scalable and reproducible benchmarking pipeline. Our approach leverages three key components:
+
+\paragraph{Apptainer Containers.}
+All experiments run within identical containerized environments to ensure reproducibility across different cluster nodes and eliminate dependency variability.
+
+\paragraph{SLURM Job Arrays.}
+We encode hyperparameter configurations in CSV files and use SLURM job arrays to execute multiple training runs in parallel. Each job array task reads a specific configuration row, trains the model, and logs results to a shared output CSV.
+
+\paragraph{Automated Result Analysis.}
+Post-training, we use Python scripts to aggregate results, compute statistics, and generate comparative plots. Results are locked to prevent concurrent write conflicts.
+
+\subsection{Hyperparameter Space}
+\label{subsec:hyperparameter-space}
+
+We explored three primary dimensions: mini-batch sampling, neighbor sampling, and GPU scaling. Table~\ref{tab:hyperparameters} summarizes the tested and fixed hyperparameters.
+
+\begin{table}[h]
+\centering
+\caption{Hyperparameter configurations tested and fixed values}
+\label{tab:hyperparameters}
+\begin{tabular}{@{} l l l @{}}
+\toprule
+\textbf{Parameter} & \textbf{Default Value} & \textbf{Range Tested} \\
+\midrule
+\multicolumn{3}{l}{\textit{Tested Parameters}} \\
+Batch size & 128 & 16, 32, 64, 128, 160, 192, 256, 512 \\
+Gradient accumulation steps & 5 & 1, 2, 3, 4, 5 \\
+Neighbor fanout & [15,10,10,10,10] & 16 configurations \\
+GPU count & 4 & 1, 2, 4, 8 \\
+\midrule
+\multicolumn{3}{l}{\textit{Fixed Parameters}} \\
+Number of layers & 5 &  -  \\
+Hidden dimensions & 256 &  -  \\
+Learning rate & 0.003 &  -  \\
+Epochs & 150 &  -  \\
+Early stopping patience & 10 &  -  \\
+Dropout rate & 0.5 &  -  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Effective Batch Size.}
+The effective batch size is computed as:
+\[
+\text{Effective Batch Size} = \text{batch\_size} \times \text{accum\_steps} \times \text{world\_size}
+\]
+where \texttt{world\_size} is the number of GPUs. For example, with batch size 128, accumulation steps 5, and 4 GPUs, the effective batch size is $128 \times 5 \times 4 = 2560$.
+
+\subsection{Configurations Tested}
+\label{subsec:configs-tested}
+
+In total, we evaluated \textbf{36 hyperparameter configurations}:
+\begin{itemize}
+    \item \textbf{Mini-batch sampling:} 16 configurations varying batch size (16--512) and gradient accumulation steps (1--5)
+    \item \textbf{Neighbor sampling:} 16 fanout configurations, including uniform ([10,10,10,10,10]), decreasing ([20,15,10,5,3]), and layer-ablation strategies ([15,10,10,10,0])
+    \item \textbf{GPU scaling:} 4 configurations testing 1, 2, 4, and 8 GPUs with fixed batch size 128 and fanout [15,10,10,10,10]
+\end{itemize}
+
+Each configuration was trained for up to 150 epochs with early stopping (patience 10) based on validation accuracy. Training time ranged from 7 hours to over 19 hours depending on configuration.
 
 %=======================================================================
 \section{Results}
