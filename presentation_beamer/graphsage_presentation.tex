@@ -300,10 +300,9 @@
 \end{frame}
 
 \begin{frame}{Why HPC and Parallelism?}
-    \textbf{1. Scale of the Problem:}
+    \textbf{1. Dimension of the Problem:}
     \begin{itemize}
-        \item Dataset cannot fit in single GPU
-        \item Neighbor sampling: Each batch node samples 5-hop neighborhoods
+        \item Each batch node samples 5-hop neighborhoods
         \item Fanout [15,10,10,10,10] $\rightarrow$ exponential growth: $\sim$150k neighbors per seed node
         \item Batch 128 nodes $\times$ 150k expansion = 19.2M nodes per batch
     \end{itemize}
@@ -317,11 +316,10 @@
     \end{itemize}
 
     \vspace{8pt}
-    \textbf{3. Solution: Multi-GPU Parallelism}
+    \textbf{3. Solution: Data Parallelism with DDP}
     \begin{itemize}
-        \item Split data across 4 GPUs $\rightarrow$ 4x memory capacity
-        \item Effective batch size: 2048 nodes (faster convergence)
-        \item Training time: \textbf{hours instead of days}
+        \item More GPUs with fixed batch size $\Rightarrow$ bigger effective batch size $\Rightarrow$ faster convergence
+        \item DeepSpeed overkill 
     \end{itemize}
 \end{frame}
 
