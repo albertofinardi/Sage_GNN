@@ -1,43 +1,71 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[sigconf,nonacm]{acmart}
 
 % Packages
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{amsmath,amssymb,amsthm}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{hyperref}
-\usepackage{cleveref}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
-\usepackage[backend=biber,style=numeric,sorting=nyt]{biblatex}
-\usepackage{xcolor}
-\usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,arrows.meta,fit,calc,patterns,shapes.misc,decorations.pathreplacing}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 \usepackage{subcaption}
-
-\addbibresource{references.bib}
+\usepackage{float}
+\usepackage{hyperref}
 
 % Custom commands
 \newcommand{\agg}{\mathrm{AGG}}
 \newcommand{\concat}{\mathrm{CONCAT}}
 \newcommand{\relu}{\mathrm{ReLU}}
 
+% Remove ACM copyright/conference info
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+% Bibliography file
+\citestyle{acmauthoryear}
+
 % Document metadata
-\title{\textbf{Applying GraphSAGE to Large-Scale Node Classification}\\[0.5em]
-\large Programming Machine Learning Models for HPC\\
-Final Report}
-\author{Thomas Gantz \and Alberto Finardi \and Tommaso Crippa \and Jan Marxen}
-\date{December 2025}
+\title{Applying GraphSAGE to Large-Scale Node Classification}
+\subtitle{Programming Machine Learning Algorithms for HPC - Final Report}
+
+\author{Thomas Gantz}
+\affiliation{%
+  \institution{University of Luxembourg}
+  \country{Luxembourg}
+}
+\email{thomas.gantz.001@student.uni.lu}
+
+\author{Alberto Finardi}
+\affiliation{%
+  \institution{University of Luxembourg}
+  \country{Luxembourg}
+}
+\email{alberto.finardi.001@student.uni.lu}
+
+\author{Tommaso Crippa}
+\affiliation{%
+  \institution{University of Luxembourg}
+  \country{Luxembourg}
+}
+\email{tommaso.crippa.001@student.uni.lu}
+
+\author{Jan Esquivel Marxen}
+\affiliation{%
+  \institution{University of Luxembourg}
+  \country{Luxembourg}
+}
+\email{jan.esquivel.001@student.uni.lu}
 
 \begin{document}
 
-\maketitle
-
 \begin{abstract}
-This report documents our study and application of GraphSAGE (Graph SAmple and aggreGatE)~\cite{graphsage}, an inductive framework for learning node embeddings on large-scale graphs. We provide background on graph neural networks and the message passing paradigm, then describe how GraphSAGE addresses the scalability limitations of earlier approaches by learning aggregator functions rather than fixed node embeddings. We apply GraphSAGE to the ogbn-products benchmark dataset for node classification, detailing our implementation choices, hyperparameter tuning process, and experimental results.
+This report documents our study and application of GraphSAGE (Graph SAmple and aggreGatE)~\cite{graphsage}, an inductive framework for learning node embeddings on large-scale graphs. We provide background on graph neural networks and the message passing paradigm, then describe how GraphSAGE addresses the scalability limitations of earlier approaches by learning aggregator functions rather than fixed node embeddings. We apply GraphSAGE to the ogbn-products benchmark dataset for node classification, detailing our implementation choices, hyperparameter tuning process, and experimental results.\\[0.2cm]
+\textit{Code and experiments available at: \url{https://github.com/albertofinardi/Sage_GNN}}
 \end{abstract}
+
+\maketitle
 
 %=======================================================================
 \section{Introduction}
@@ -83,27 +111,235 @@ GraphSAGE supports several aggregators: \textbf{mean} (element-wise average), \t
 \subsection{Dataset and Challenge}
 \label{subsec:dataset}
 
-We evaluate GraphSAGE on the \textbf{ogbn-products} dataset~\cite{ogb}, an Amazon co-purchase network with 2.4M nodes, 61M edges, and 47 classes (8\% train, 2\% validation, 90\% test split). The scale makes full-batch training infeasible, necessitating \textbf{mini-batch training with neighbor sampling}.
+We evaluate GraphSAGE on the \textbf{ogbn-products} dataset~\cite{ogb}, an Amazon co-purchase network with 2.4M nodes (products), 61M edges, and 47 classes (8\% train, 2\% validation, 90\% test split). The scale makes full-batch training infeasible, as the entire graph cannot fit in GPU memory and full message passing on 2.4M nodes is computationally prohibitive. This necessitates \textbf{mini-batch training with neighbor sampling} as the core solution strategy.
 
 \subsection{Sampling Strategy}
 \label{subsec:sampling-strategy}
 
-We employ two complementary strategies: (1) \textbf{mini-batch sampling} selects fixed-size subsets of seed nodes per iteration (e.g., 128), and (2) \textbf{neighbor sampling} recursively samples neighbors at each layer with fanout $[S_1, \ldots, S_k]$. For fanout $[15, 10, 10, 10, 10]$, each seed expands to ${\sim}150{,}000$ neighbors, yielding ${\sim}19.2$M nodes per batch (128 seeds). This subgraph expansion dominates memory (30--40 GB) versus model parameters (${\sim}8$ MB).
+We employ two complementary strategies:
+
+\paragraph{Mini-Batch Sampling.} We select a small subset of seed nodes per iteration (e.g., 128 nodes). Only embeddings for these nodes and their neighborhoods are computed, and model parameters are updated based on the batch loss. This enables processing large graphs that cannot fit entirely in GPU memory.
+
+\paragraph{Neighbor Sampling (k-hop).} For each seed node, we sample neighbors recursively for $k$ layers. The \textbf{fanout} $[S_1, S_2, \ldots, S_k]$ specifies the number of neighbors sampled per layer. For example, fanout $[15, 10, 10, 10, 10]$ samples 15 neighbors at layer 1 and 10 neighbors at layers 2--5.
+
+\paragraph{The Memory Challenge.} This sampling strategy causes \textbf{exponential growth}: with fanout $[15, 10, 10, 10, 10]$, each seed node expands to approximately $15 \times 10^4 = 150{,}000$ neighbors. With 128 seed nodes, this yields $128 \times 150{,}000 = 19.2$M nodes per batch. The memory bottleneck is clear: sampled subgraphs and intermediate activations consume 30--40 GB, while model parameters require only ${\sim}8$ MB. Thus, \textbf{subgraph storage dominates over model parameters}.
+
+Figures~\ref{fig:neighbor-expansion-tree} and \ref{fig:neighbor-explosion} illustrate this exponential growth pattern.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.7]
+    % Layer 0 (seed)
+    \node[circle, draw, thick, fill=red!70, minimum size=0.5cm] (s) at (0, 0) {\tiny seed};
+
+    % Layer 1 (3 neighbors)
+    \foreach \i in {1,2,3} {
+        \pgfmathsetmacro{\x}{(\i-2)*2.5}
+        \node[circle, draw, thick, fill=orange!60, minimum size=0.4cm] (n1\i) at (\x, -1.8) {};
+        \draw[->, thick, gray] (s) -- (n1\i);
+    }
+
+    % Layer 2 (6 neighbors - 2 per L1 node)
+    \foreach \i in {1,2,3} {
+        \foreach \j in {1,2} {
+            \pgfmathsetmacro{\x}{(\i-2)*2.5 + (\j-1.5)*1.1}
+            \node[circle, draw, thick, fill=yellow!60, minimum size=0.35cm] (n2\i\j) at (\x, -3.6) {};
+            \draw[->, thick, gray!60] (n1\i) -- (n2\i\j);
+        }
+    }
+
+    % Layer 3 (12 neighbors - 2 per L2 node)
+    \foreach \i in {1,2,3} {
+        \foreach \j in {1,2} {
+            \foreach \k in {1,2} {
+                \pgfmathsetmacro{\x}{(\i-2)*2.5 + (\j-1.5)*1.1 + (\k-1.5)*0.6}
+                \node[circle, draw, thick, fill=green!40, minimum size=0.25cm] (n3\i\j\k) at (\x, -5.2) {};
+                \draw[->, thick, gray!40] (n2\i\j) -- (n3\i\j\k);
+            }
+        }
+    }
+\end{tikzpicture}
+\caption{K-hop neighborhood expansion visualization with simplified fanout [3, 2, 2]. Starting from a single seed node, each layer multiplies the node count by the fanout value, demonstrating the exponential growth pattern inherent in neighbor sampling.}
+\label{fig:neighbor-expansion-tree}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+    \begin{axis}[
+        ybar,
+        symbolic x coords={L0, L1, L2, L3, L4, L5},
+        xtick=data,
+        ylabel={Cumulative Nodes Sampled},
+        ymode=log,
+        log origin=infty,
+        width=\columnwidth,
+        height=5cm,
+        bar width=18pt,
+        ymin=1,
+        ymax=200000,
+        ylabel style={font=\small},
+        xlabel style={font=\small},
+        tick label style={font=\footnotesize},
+        grid=major,
+        grid style={dashed, gray!30},
+        nodes near coords,
+        every node near coord/.append style={font=\tiny, rotate=0, anchor=south}
+    ]
+    \addplot[fill=red!70] coordinates {
+        (L0, 1)
+        (L1, 15)
+        (L2, 150)
+        (L3, 1500)
+        (L4, 15000)
+        (L5, 150000)
+    };
+    \end{axis}
+\end{tikzpicture}
+\caption{Memory explosion with real fanout configuration [15, 10, 10, 10, 10]. Each layer multiplies the sampled nodes, reaching 150,000 neighbors per seed node at layer 5. Combined across 128 seed nodes per batch, this yields 19.2M nodes consuming 30--40 GB of GPU memory.}
+\label{fig:neighbor-explosion}
+\end{figure}
 
 \subsection{Infrastructure and Software}
 \label{subsec:infrastructure}
 
-Experiments run on \textbf{MeluXina} supercomputer with 4$\times$ A100 GPUs (40 GB) per node and HDR200 InfiniBand interconnect. We use \textbf{PyTorch 2.1.2} (CUDA 12.1, cuDNN 8) with \textbf{PyTorch Geometric} for neighbor sampling (\texttt{NeighborLoader}) and GraphSAGE layers (\texttt{SAGEConv}). The pipeline is containerized via \textbf{Apptainer/Singularity} for reproducibility, bundling PyG, OGB, and compiled CUDA extensions.
+We use \textbf{PyTorch 2.1.2} (CUDA 12.1, cuDNN 8) with \textbf{PyTorch Geometric} for neighbor sampling (\texttt{NeighborLoader}) and GraphSAGE layers (\texttt{SAGEConv}). The pipeline is containerized via \textbf{Apptainer/Singularity} for reproducibility, bundling PyG, OGB, and compiled CUDA extensions.
 
 \subsection{Distributed Training}
 \label{subsec:ddp}
 
-To overcome single-GPU memory limits, we use \textbf{PyTorch DDP} for multi-GPU training. The model itself is small (${\sim}400$K parameters, ${\sim}8$ MB) and requires no model parallelism or partitioning - the memory bottleneck is the sampled subgraphs (30--40 GB per batch), not model size. Thus, \textbf{data parallelism} is the appropriate strategy, making DDP ideal and rendering frameworks like DeepSpeed unnecessary. SLURM launches independent ranks per GPU, each with its own model replica and \texttt{NeighborLoader} on partitioned training data. Processes communicate via \textbf{NCCL} (NVLink intra-node, InfiniBand inter-node). Each rank computes forward/backward passes independently; DDP automatically all-reduces gradients for synchronized parameter updates. This achieves 3.73$\times$ speedup on 4 GPUs (93\% efficiency) and ${\sim}7\times$ on 8 GPUs (89\% efficiency).
+To overcome single-GPU memory limits, we use \textbf{PyTorch DDP} (Distributed Data Parallel) for multi-GPU training.
+
+\paragraph{Why DDP and Not DeepSpeed?} The choice of DDP over more sophisticated frameworks like DeepSpeed is deliberate and based on our specific bottleneck analysis:
+\begin{itemize}
+    \item \textbf{Model size is tiny:} Our GraphSAGE model has only ${\sim}400$K parameters (${\sim}8$ MB), fitting comfortably in GPU memory. No model parallelism, tensor parallelism, or pipeline parallelism is needed.
+    \item \textbf{Memory bottleneck is data, not parameters:} The memory pressure comes from sampled subgraphs (30--40 GB per batch), not model weights. DeepSpeed's Zero Redundancy Optimizer (ZeRO) optimizes parameter storage - irrelevant when parameters are negligible.
+    \item \textbf{Data parallelism is sufficient:} The problem requires distributing \textit{data} (batches) across GPUs, not \textit{model} partitioning. DDP's simple data-parallel strategy is exactly what we need.
+    \item \textbf{Simplicity and maintainability:} DDP requires minimal code changes and integrates seamlessly with PyTorch. DeepSpeed adds complexity (configuration files, custom optimizers) without tangible benefits for our use case.
+\end{itemize}
+
+In summary: \textbf{DeepSpeed solves the wrong problem}. Our bottleneck is subgraph storage, not model size. DDP's straightforward data parallelism is the optimal solution.
+
+\paragraph{DDP Training Process.} The distributed training workflow consists of four key steps:
+\begin{enumerate}
+    \item \textbf{Process Initialization:} SLURM launches independent ranks per GPU (one process per GPU), each with its own Python interpreter and CUDA context. Processes communicate via the \textbf{NCCL} backend for GPU-to-GPU communication.
+    \item \textbf{Data Partitioning:} The training set is split across ranks with no overlap. Each rank maintains an independent \newline \texttt{NeighborLoader} for k-hop sampling, with 4--8 worker processes prefetching batches per GPU.
+    \item \textbf{Forward + Backward (Parallel):} Each GPU independently processes its batch, computes loss, and backpropagates gradients.
+    \item \textbf{Gradient Synchronization:} DDP performs an all-reduce operation to average gradients across all GPUs, ensuring synchronized parameter updates via the optimizer step.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    scale=0.85,
+    boxstyle/.style={rectangle, draw, thick, minimum height=0.6cm, align=center},
+    databox/.style={boxstyle, fill=blue!20, minimum width=1.8cm, font=\scriptsize},
+    modelbox/.style={boxstyle, fill=green!25, minimum width=1.8cm, font=\scriptsize},
+    gpubox/.style={boxstyle, fill=orange!15, minimum width=1.3cm, font=\tiny},
+    arrow/.style={->, >=Stealth, thick},
+    redarrow/.style={<->, >=Stealth, very thick, red, dashed}
+]
+
+% Data shards (left-center column)
+\node[databox] (d0) at (-2.5, 3.2) {Shard 0};
+\node[databox] (d1) at (-2.5, 1.6) {Shard 1};
+\node[databox] (d2) at (-2.5, 0) {Shard 2};
+\node[databox] (d3) at (-2.5, -1.6) {Shard 3};
+
+% Box around all shards
+\node[draw, thick, blue!60, dashed, rounded corners=4pt, inner sep=6pt, fit=(d0)(d3)] (shardbox) {};
+\node[font=\scriptsize, blue!60, align=left] at (-3, 4.2) {Training Set};
+
+% GPU labels (center)
+\node[gpubox] (g0) at (0, 3.2) {\textbf{GPU 0}};
+\node[gpubox] (g1) at (0, 1.6) {\textbf{GPU 1}};
+\node[gpubox] (g2) at (0, 0) {\textbf{GPU 2}};
+\node[gpubox] (g3) at (0, -1.6) {\textbf{GPU 3}};
+
+% Model replicas (right-center column)
+\node[modelbox] (m0) at (2.5, 3.2) {Model\\copy};
+\node[modelbox] (m1) at (2.5, 1.6) {Model\\copy};
+\node[modelbox] (m2) at (2.5, 0) {Model\\copy};
+\node[modelbox] (m3) at (2.5, -1.6) {Model\\copy};
+
+% Arrows connecting data -> GPU -> model
+\foreach \i in {0,1,2,3} {
+    \draw[arrow] (d\i) -- (g\i);
+    \draw[arrow] (g\i) -- (m\i);
+}
+
+% Gradient sync arrows
+\draw[redarrow] (m0) -- (m1);
+\draw[redarrow] (m1) -- (m2);
+\draw[redarrow] (m2) -- (m3);
+
+\end{tikzpicture}
+\caption{DDP architecture: data partitioned across GPUs, full model replicated per rank. Gradients synchronized via NCCL all-reduce after each batch. This data-parallel strategy is optimal when model size is small but data volume is large.}
+\label{fig:ddp-architecture}
+\end{figure}
+
+Figure~\ref{fig:system-architecture} illustrates the complete system architecture, showing how SLURM orchestrates containerized training across multiple GPUs with partitioned data and NCCL-based gradient synchronization.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.55, every node/.style={transform shape}]
+
+% Styles
+\tikzset{
+    boxstyle/.style={rectangle, draw, thick, minimum height=0.7cm, align=center},
+    gpu/.style={boxstyle, fill=green!20, minimum width=1.7cm, font=\small},
+    loader/.style={boxstyle, fill=orange!15, minimum width=1.5cm},
+    graphbox/.style={boxstyle, fill=yellow!25, minimum width=9cm, minimum height=0.9cm},
+    arrow/.style={-, >=Stealth, thick},
+    redarrow/.style={<->, >=Stealth, very thick, red, dashed}
+}
+
+% Top layers
+\node[boxstyle, fill=purple!20, minimum width=3.5cm] (slurm) at (0, 5.2) {\textbf{SLURM}};
+\node[boxstyle, fill=cyan!20, minimum width=3.5cm] (container) at (0, 3.8) {\textbf{Apptainer}\\PyTorch+PyG};
+
+% GPU ranks
+\node[gpu] (r0) at (-4.5, 2.2) {\textbf{Rank 0}\\GPU 0};
+\node[gpu] (r1) at (-1.5, 2.2) {\textbf{Rank 1}\\GPU 1};
+\node[gpu] (r2) at (1.5, 2.2) {\textbf{Rank 2}\\GPU 2};
+\node[gpu] (r3) at (4.5, 2.2) {\textbf{Rank 3}\\GPU 3};
+
+% NCCL
+\draw[redarrow] (r0) -- (r1);
+\draw[redarrow] (r1) -- (r2);
+\draw[redarrow] (r2) -- (r3);
+
+% NCCL label
+\node[font=\scriptsize, red] at (0, 2.8) {NCCL};
+
+% Loaders
+\node[loader] (l0) at (-4.5, 0.7) {Loader};
+\node[loader] (l1) at (-1.5, 0.7) {Loader};
+\node[loader] (l2) at (1.5, 0.7) {Loader};
+\node[loader] (l3) at (4.5, 0.7) {Loader};
+
+% Graph data
+\node[graphbox] (gdata) at (0, -0.6) {\textbf{Graph Data} (partitioned)};
+
+% Arrows
+\draw[arrow] (slurm) -- (container);
+\foreach \r in {r0,r1,r2,r3} {
+    \draw[arrow] (container) -- (\r);
+}
+\foreach \i in {0,1,2,3} {
+    \draw[arrow] (r\i) -- (l\i);
+    \draw[arrow] (gdata) -- (l\i);
+}
+
+\end{tikzpicture}
+\caption{System architecture for distributed GraphSAGE training. SLURM launches 4 containerized processes (one per GPU), each running an independent rank with its own NeighborLoader sampling from partitioned graph data. Gradients are synchronized across ranks via NCCL all-reduce.}
+\label{fig:system-architecture}
+\end{figure}
 
 \subsection{Model Architecture}
 \label{subsec:architecture}
 
-Our 5-layer GraphSAGE model uses \textbf{SAGEConv} (mean aggregation) + \textbf{LayerNorm} + \textbf{ReLU} + \textbf{Dropout} (0.5) per layer, with a final linear classifier. Architecture: 100-dim input (ogbn-products features) $\to$ 256-dim hidden $\to$ 47-dim output (${\sim}400$K parameters total).
+Our GraphSAGE model consists of 5 layers, each using the \textbf{SAGEConv} layer with mean aggregation, followed by \textbf{LayerNorm}, \textbf{ReLU} activation, and \textbf{Dropout} (rate 0.5). The final layer is followed by a linear classifier for the 47-class prediction task. The architecture follows: 100-dimensional input (ogbn-products node features) $\to$ 256-dimensional hidden representations $\to$ 47-dimensional output (class logits). The model contains approximately 400K parameters, totaling ${\sim}8$ MB in memory - negligible compared to the 30--40 GB required for sampled subgraphs.
 
 %=======================================================================
 \section{Hyperparameters}
@@ -113,43 +349,48 @@ Our 5-layer GraphSAGE model uses \textbf{SAGEConv} (mean aggregation) + \textbf{
 \subsection{Hyperparameter Tuning Methodology}
 \label{subsec:tuning-methodology}
 
-To systematically explore the hyperparameter space and identify optimal configurations for large-scale GraphSAGE training, we developed a scalable and reproducible benchmarking pipeline. Our approach leverages three key components:
+To systematically explore the hyperparameter space and identify optimal configurations for large-scale GraphSAGE training, we developed a scalable and reproducible benchmarking pipeline. The goal is to enable \textbf{systematic, parallel hyperparameter optimization} on HPC infrastructure while maintaining complete reproducibility.
 
-\paragraph{Apptainer Containers.}
-All experiments run within identical containerized environments to ensure reproducibility across different cluster nodes and eliminate dependency variability.
+\paragraph{Benchmark Pipeline Architecture.}
+Our pipeline follows a CSV-driven workflow:
+\begin{enumerate}
+    \item \textbf{Configuration Encoding:} Hyperparameter combinations are encoded in a \texttt{hyperparams.csv} file, with each row representing one training configuration.
+    \item \textbf{SLURM Job Arrays:} Job arrays execute multiple training runs in parallel across the cluster. Each array task reads a specific configuration row by index (\texttt{\$SLURM\_ARRAY\_TASK\_ID}).
+    \item \textbf{Containerized Training:} All experiments run within Apptainer containers (based on \newline \texttt{pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime}) to ensure identical environments across cluster nodes and eliminate dependency variability.
+    \item \textbf{DDP Training Execution:} Each job launches distributed training across 4 GPUs using PyTorch DDP, with training progress and final metrics logged.
+    \item \textbf{Result Aggregation:} Training jobs write results (accuracy, loss, time, memory) to a shared \texttt{results.csv} file with file locking to prevent concurrent write conflicts.
+    \item \textbf{Automated Analysis:} Python plotting scripts (\texttt{plotter.py}) aggregate results, compute statistics, and generate comparative visualizations.
+\end{enumerate}
 
-\paragraph{SLURM Job Arrays.}
-We encode hyperparameter configurations in CSV files and use SLURM job arrays to execute multiple training runs in parallel. Each job array task reads a specific configuration row, trains the model, and logs results to a shared output CSV.
-
-\paragraph{Automated Result Analysis.}
-Post-training, we use Python scripts to aggregate results, compute statistics, and generate comparative plots. Results are locked to prevent concurrent write conflicts.
+This architecture enables efficient parallel exploration of multiple hyperparameter configurations while maintaining scientific rigor through containerization and automated logging.
 
 \subsection{Hyperparameter Space}
 \label{subsec:hyperparameter-space}
 
-We explored three primary dimensions: mini-batch sampling, neighbor sampling, and GPU scaling. Table~\ref{tab:hyperparameters} summarizes the tested and fixed hyperparameters.
+We explored three primary dimensions affecting training performance and model quality: \textbf{mini-batch sampling} (batch size and gradient accumulation), \textbf{neighbor sampling} (fanout strategies), and \textbf{GPU scaling} (distributed training). Table~\ref{tab:hyperparameters} summarizes the tested parameters and their ranges, as well as fixed architectural and training hyperparameters.
 
-\begin{table}[h]
+\begin{table}[!htbp]
 \centering
 \caption{Hyperparameter configurations tested and fixed values}
 \label{tab:hyperparameters}
-\begin{tabular}{@{} l l l @{}}
+\small
+\begin{tabular}{@{} p{0.45\columnwidth} p{0.45\columnwidth} @{}}
 \toprule
-\textbf{Parameter} & \textbf{Default Value} & \textbf{Range Tested} \\
+\multicolumn{2}{c}{\textbf{Tested Parameters}} \\
 \midrule
-\multicolumn{3}{l}{\textit{Tested Parameters}} \\
-Batch size & 128 & 16, 32, 64, 128, 160, 192, 256, 512 \\
-Gradient accumulation steps & 5 & 1, 2, 3, 4, 5 \\
-Neighbor fanout & [15,10,10,10,10] & 16 configurations \\
-GPU count & 4 & 1, 2, 4, 8 \\
+Batch size & 16, 32, 64, 128, 160, 192, 256, 512 \\
+Gradient accumulation & 1, 2, 3, 4, 5 \\
+Neighbor fanout & 16 configurations \\
+GPU count & 1, 2, 4, 8 \\
 \midrule
-\multicolumn{3}{l}{\textit{Fixed Parameters}} \\
-Number of layers & 5 &  -  \\
-Hidden dimensions & 256 &  -  \\
-Learning rate & 0.003 &  -  \\
-Epochs & 150 &  -  \\
-Early stopping patience & 10 &  -  \\
-Dropout rate & 0.5 &  -  \\
+\multicolumn{2}{c}{\textbf{Fixed Parameters}} \\
+\midrule
+Layers & 5 \\
+Hidden dimensions & 256 \\
+Learning rate & 0.003 \\
+Epochs & 150 \\
+Early stopping patience & 10 \\
+Dropout rate & 0.5 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -164,14 +405,22 @@ where \texttt{world\_size} is the number of GPUs. For example, with batch size 1
 \subsection{Configurations Tested}
 \label{subsec:configs-tested}
 
-In total, we evaluated \textbf{36 hyperparameter configurations}:
-\begin{itemize}
-    \item \textbf{Mini-batch sampling:} 16 configurations varying batch size (16--512) and gradient accumulation steps (1--5)
-    \item \textbf{Neighbor sampling:} 16 fanout configurations, including uniform ([10,10,10,10,10]), decreasing ([20,15,10,5,3]), and layer-ablation strategies ([15,10,10,10,0])
-    \item \textbf{GPU scaling:} 4 configurations testing 1, 2, 4, and 8 GPUs with fixed batch size 128 and fanout [15,10,10,10,10]
-\end{itemize}
+In total, we evaluated \textbf{36 hyperparameter configurations} organized into three benchmark categories:
 
-Each configuration was trained for up to 150 epochs with early stopping (patience 10) based on validation accuracy. Training time ranged from 7 hours to over 19 hours depending on configuration.
+\paragraph{Mini-Batch Sampling (16 configurations).} We tested combinations of batch size (16, 32, 64, 128, 160, 192, 256, 512) and gradient accumulation steps (1--5). The goal was to understand the trade-off between training time per epoch, peak GPU memory usage, and overall training efficiency. Batch sizes beyond 160 exceeded the 40 GB A100 memory limit and resulted in out-of-memory (OOM) errors.
+
+\paragraph{Neighbor Sampling (16 configurations).} We explored diverse fanout strategies to balance accuracy, training time, and memory consumption:
+\begin{itemize}
+    \item \textbf{Uniform:} [10,10,10,10,10], [12,12,12,12,12],\newline[15,15,15,15,15]
+    \item \textbf{Decreasing:} [20,15,10,5,3], [15,15,10,5,5],[30,10,5,3,3], \newline[12,11,10,9,8]
+    \item \textbf{Increasing:} [3,5,10,15,20]
+    \item \textbf{Layer ablation:} [50,0,0,0,0], [15,0,0,0,0], [15,10,0,0,0], \newline[15,10,10,0,0], [15,10,10,10,0]
+\end{itemize}
+The total fanout metric, $F_{\text{total}} = \prod_{i=1}^{5} S_i$, quantifies the exponential neighborhood expansion per seed node.
+
+\paragraph{GPU Scaling (4 configurations).} We evaluated distributed training scalability across 1, 2, 4 (single node), and 8 GPUs (2 nodes), with fixed batch size 128 and fanout [15,10,10,10,10]. The focus was on measuring speedup, parallel efficiency, and the impact of effective batch size on convergence.
+
+Each configuration was trained for up to 150 epochs with early stopping (patience 10) based on validation accuracy. Training time ranged from 7.22 hours ([15,10,10,10,0]) to over 19.53 hours \newline([15,10,10,10,10]) depending on configuration.
 
 %=======================================================================
 \section{Results}
@@ -180,52 +429,49 @@ Each configuration was trained for up to 150 epochs with early stopping (patienc
 
 \subsection{Experimental Setup}
 
-All benchmarking experiments were conducted on the MeluXina supercomputer (Luxembourg National Supercomputer) using the Accelerator Module with 4x NVIDIA A100 GPUs (40GB each) per node and HDR200 InfiniBand interconnect (400 Gb/s aggregate bandwidth). We evaluate three key dimensions: mini-batch sampling, neighbor sampling strategies, and GPU scaling.
+All benchmarking experiments were conducted on the MeluXina supercomputer (Luxembourg National Supercomputer) using the Accelerator Module with 4x NVIDIA A100 GPUs (40GB each) per node. We evaluate three key dimensions: mini-batch sampling, neighbor sampling strategies, and GPU scaling.
 
 \subsection{Mini-batch Sampling Benchmarking}
 
-Mini-batch sampling controls the trade-off between training speed and GPU memory utilization. Figure~\ref{fig:minibatch-results} presents the impact of batch size on training time and memory consumption.
+Mini-batch sampling controls the trade-off between training speed and GPU memory utilization. We varied batch size from 16 to 512 and gradient accumulation steps from 1 to 5, measuring training time per epoch and peak memory consumption. Figures~\ref{fig:batch-time} and \ref{fig:batch-memory} present the impact of batch size on these metrics.
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{../plots/time_per_epoch_vs_batch_size.png}
-        \label{fig:batch-time}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{../plots/peak_memory_vs_batch_size.png}
-        \label{fig:batch-memory}
-    \end{subfigure}
-    \caption{Mini-batch Sampling Analysis}
-    \label{fig:minibatch-results}
+    \includegraphics[width=\columnwidth]{../plots/time_per_epoch_vs_batch_size.png}
+    \caption{Training time per epoch decreases with larger batch sizes due to better GPU utilization and reduced forward/backward pass overhead.}
+    \label{fig:batch-time}
 \end{figure}
 
-\textbf{Key Finding:} Batch sizes 128--160 provide optimal balance between memory utilization and speed of training.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{../plots/peak_memory_vs_batch_size.png}
+    \caption{Peak memory consumption scales linearly with batch size. Maximum feasible batch size is 160, using ${\sim}32$ GB (with ${\sim}7.5$ GB system overhead).}
+    \label{fig:batch-memory}
+\end{figure}
+
+\textbf{Key Findings:}
+\begin{itemize}
+    \item \textbf{Inverse relationship:} Larger batch sizes yield faster training per epoch due to better GPU utilization and amortized computational overhead.
+    \item \textbf{Memory ceiling:} Batch sizes beyond 160 exceed the 40 GB A100 memory limit, resulting in OOM errors. The 160 batch size uses approximately 32 GB, leaving ${\sim}7.5$ GB for system overhead.
+    \item \textbf{Optimal range:} Batch sizes 128--160 provide the best balance between memory efficiency and training speed.
+\end{itemize}
 
 \subsection{Neighbor Sampling Benchmarking}
 
-Neighbor sampling strategy critically impacts both accuracy and computational cost. Figure~\ref{fig:neighbor-results} illustrates the trade-offs between accuracy, training time, and memory consumption across various fanout configurations.
+Neighbor sampling strategy critically impacts both accuracy and computational cost. We tested 16 fanout configurations, including uniform strategies, decreasing patterns, and layer ablation studies. The fanout determines the receptive field size and thus the amount of structural context available to the model, but also directly affects memory consumption through exponential neighborhood expansion. Figures~\ref{fig:neighbor-acc-time} and \ref{fig:neighbor-memory} illustrate the trade-offs between accuracy, training time, and memory consumption across various fanout configurations.
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{../plots/neighbor_efficiency_time_vs_accuracy.png}
-        \caption{Plot showing accuracy-time trade-off. Upper-left region indicates efficient configurations.}
-        \label{fig:neighbor-acc-time}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{../plots/neighbor_memory_vs_fanout.png}
-        \caption{Memory consumption scales rapidly with total fanout.}
-        \label{fig:neighbor-memory}
-    \end{subfigure}
-    \caption{Neighbor Sampling Trade-offs}
-    \label{fig:neighbor-results}
+    \includegraphics[width=\columnwidth]{../plots/neighbor_efficiency_time_vs_accuracy.png}
+    \caption{Accuracy-time trade-off. Upper-left region (high accuracy, low time) indicates efficient configurations. Moderate fanouts achieve the best balance.}
+    \label{fig:neighbor-acc-time}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{../plots/neighbor_memory_vs_fanout.png}
+    \caption{Memory consumption scales rapidly with total fanout ($F_{\text{total}} = \prod_{i=1}^{5} S_i$). High fanouts hit the 40 GB memory limit.}
+    \label{fig:neighbor-memory}
 \end{figure}
 
 \textbf{Top Configurations (by Test Accuracy):}
@@ -239,36 +485,42 @@ Neighbor sampling strategy critically impacts both accuracy and computational co
 2 & [15, 10, 10, 10, 0] & 0.8114 & 7.22 \\
 \textbf{3} & \textbf{[15, 10, 10, 10, 10]} & \textbf{0.8096} & \textbf{19.53} \\
 4 & [10, 10, 10, 10, 10] & 0.8088 & 16.46 \\
+5 & [20, 15, 10, 5, 3] & 0.8055 & 11.60 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{Key Finding:} Configuration [15,10,10,10,0] achieves competitive accuracy (81.14\%) in only 7.22 hours, 2.7x faster than the baseline. This suggests the final layer benefits from reduced neighbor sampling, as deeper aggregations capture sufficient context.
+\textbf{Key Findings:}
+\begin{itemize}
+    \item \textbf{Optimal efficiency:} Configuration [15,10,10,10,0] achieves near-baseline accuracy (81.14\% vs. 80.96\%) in only 7.22 hours, representing a \textbf{2.7$\times$ speedup} compared to the baseline [15,10,10,10,10]. This suggests that \textbf{the final layer can use zero fanout} without significant accuracy loss, as 4-hop aggregation captures sufficient structural context.
+    \item \textbf{Moderate fanouts dominate:} The upper-left region of the accuracy-time plot is populated by moderate fanout configurations. Very high fanouts provide no proportional accuracy gains and incur excessive memory and time costs.
+    \item \textbf{Aggressive sampling hurts:} Extremely low fanouts (e.g., [5,5,5,5,5]) or single-layer strategies (e.g., [50,0,0,0,0]) either underperform or exhibit training instability.
+\end{itemize}
 
 \subsection{GPU Scaling Benchmarking}
 
-Distributed training via PyTorch DDP enables efficient multi-GPU utilization. We evaluate scaling from 1 to 8 GPUs (4 GPUs per node, 2 nodes).
+Distributed training via PyTorch DDP enables efficient multi-GPU utilization. We evaluated scaling across 1, 2, 4 (single node), and 8 GPUs (2 nodes) with fixed hyperparameters (batch size 128, fanout [15,10,10,10,10]) to isolate the effect of parallelization. Training was limited to 10 epochs for faster benchmarking. Figures~\ref{fig:scaling-time} and \ref{fig:scaling-loss} show training time per epoch and training loss convergence across GPU counts.
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{../plots/scaling_time_per_epoch.png}
-        \caption{Strong scaling up to 4 GPUs (93\% efficiency). 8 GPUs across 2 nodes: 89\% efficiency.}
-        \label{fig:scaling-time}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{../plots/scaling_train_loss.png}
-        \caption{Training loss increases with GPU count due to larger effective batch sizes.}
-        \label{fig:scaling-loss}
-    \end{subfigure}
-    \caption{Distributed Training Analysis}
-    \label{fig:scaling-results}
+    \includegraphics[width=\columnwidth]{../plots/scaling_time_per_epoch.png}
+    \caption{Strong scaling demonstrates near-linear speedup up to 4 GPUs (93\% efficiency). Inter-node scaling to 8 GPUs achieves 89\% efficiency with modest degradation due to inter-node communication overhead.}
+    \label{fig:scaling-time}
 \end{figure}
 
-\textbf{Key Finding:} Strong intra-node scaling achieves 3.73x speedup (4 GPUs, 93\% efficiency). Inter-node scaling to 8 GPUs yields $\sim$7x speedup (89\% efficiency), showing acceptable degradation. The trade-off between training loss and wall-clock time is favorable: modest loss increase for 7x speedup justifies distributed training.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\columnwidth]{../plots/scaling_train_loss.png}
+    \caption{Training loss increases with GPU count due to larger effective batch sizes (512 for 4 GPUs, 1024 for 8 GPUs), resulting in wider minima and reduced gradient noise.}
+    \label{fig:scaling-loss}
+\end{figure}
+
+\textbf{Key Findings:}
+\begin{itemize}
+    \item \textbf{Strong intra-node scaling:} 1$\to$2 GPUs achieves 1.93$\times$ speedup (96.5\% efficiency); 1$\to$4 GPUs achieves 3.73$\times$ speedup (93\% efficiency). This demonstrates that PCIe/NVLink bandwidth is sufficient for gradient synchronization within a single node.
+    \item \textbf{Acceptable inter-node scaling:} 1$\to$8 GPUs achieves 7.1$\times$ speedup (89\% efficiency). The 4\% efficiency drop relative to intra-node scaling is attributable to NCCL all-reduce communication over multi nodes, which introduces latency for gradient synchronization across nodes.
+    \item \textbf{Loss-speed trade-off:} Larger effective batch sizes (batch\_size $\times$ world\_size = 512 for 4 GPUs, 1024 for 8 GPUs) lead to higher training loss due to reduced gradient noise and wider minima. However, test accuracy remains competitive, justifying the 7$\times$ wall-clock speedup for distributed training.
+\end{itemize}
 
 %=======================================================================
 \section{Discussion}
@@ -277,19 +529,19 @@ Distributed training via PyTorch DDP enables efficient multi-GPU utilization. We
 
 \subsection{Bottlenecks Discovered}
 
-\textbf{Memory Wall:} The primary bottleneck is not computation but memory. Neighbor sampling causes exponential subgraph expansion: fanout [15,10,10,10,10] expands each seed node to 150k neighbors. With batch size 128, this yields 19.2M nodes per batch, requiring most of the GPU memory for subgraph storage and intermediate activations. Model parameters account for only $\sim$8MB.
+\paragraph{Memory Wall.} The primary bottleneck is not computation but \textbf{memory}. Neighbor sampling causes exponential subgraph expansion: fanout [15,10,10,10,10] expands each seed node to approximately 150k neighbors. With batch size 128, this yields 19.2M nodes per batch, consuming 30--40 GB for subgraph storage and intermediate activations. In contrast, model parameters account for only $\sim$8 MB. This reveals that \textbf{sampled subgraphs dominate memory usage by 3--4 orders of magnitude over model parameters}, making memory - not compute - the critical resource constraint.
 
-\textbf{Inter-node Communication Overhead:} Gradient synchronization via InfiniBand incurs costs. Intra-node scaling (1→4 GPUs) maintains 93\% efficiency; inter-node scaling (4→8 GPUs) drops to 89\%, representing a 4\% efficiency loss. This motivates careful consideration of multi-node training.
+\paragraph{Inter-node Communication Overhead.} Gradient synchronization via NCCL over multiple nodes introduces communication overhead. Intra-node scaling (1$\to$4 GPUs) achieves 93\% efficiency via high-bandwidth NVLink/PCIe, while inter-node scaling (4$\to$8 GPUs) drops to 89\% efficiency. This 4\% degradation reflects the latency cost of all-reduce operations across network fabric, motivating careful consideration of when multi-node training is warranted.
 
-\textbf{Loss Convergence Trade-off:} Larger effective batch sizes (product of batch size and GPU count) lead to higher training loss. Effective batch size becomes 512 (4 GPUs), 1024 (8 GPUs), etc., contributing to wider minima and reduced gradient noise.
+\paragraph{Loss Convergence Trade-off.} Larger effective batch sizes (product of batch\_size, accum\_steps, and world\_size) lead to higher training loss. Effective batch sizes of 512 (4 GPUs) and 1024 (8 GPUs) reduce gradient noise, resulting in convergence to wider minima with higher loss. However, test accuracy remains competitive, indicating that the loss increase does not significantly harm generalization - an acceptable trade-off for substantial wall-clock speedup.
 
 \subsection{What Worked Well}
 
-\textbf{DDP Implementation:} PyTorch's DistributedDataParallel seamlessly handles gradient synchronization with minimal code changes from single-GPU baseline. Automatic all-reduce operations ensure consistent parameter updates across ranks.
+\paragraph{DDP Implementation.} PyTorch's DistributedDataParallel seamlessly handles gradient synchronization with minimal code changes from the single-GPU baseline. The automatic all-reduce operations ensure consistent parameter updates across all ranks, abstracting away the complexity of distributed communication. This enabled us to scale from single-GPU to 8-GPU training with only minor modifications to the training loop.
 
-\textbf{Strong Intra-node Scaling:} The system scales nearly linearly up to 4 GPUs on a single node, with PCIe/NVLink providing sufficient bandwidth. This validates the approach for datasets fitting within node memory.
+\paragraph{Strong Intra-node Scaling.} The system scales nearly linearly up to 4 GPUs on a single node (3.73$\times$ speedup, 93\% efficiency), demonstrating that PCIe/NVLink provides sufficient bandwidth for gradient synchronization. This validates DDP as an effective approach for datasets that fit within the memory constraints of a single node but benefit from data parallelism.
 
-\textbf{Containerization:} Apptainer/Singularity ensured reproducibility across HPC environments, isolating complex PyTorch Geometric dependencies and avoiding version conflicts.
+\paragraph{Containerization.} Apptainer/Singularity ensured complete reproducibility across HPC environments by encapsulating the entire software stack (PyTorch 2.1.2, PyTorch Geometric, CUDA 12.1, cuDNN 8, and compiled CUDA extensions). This isolated complex dependencies, avoided version conflicts on shared clusters, and enabled seamless portability across different compute nodes.
 
 \subsection{Key Trade-offs}
 
@@ -302,14 +554,13 @@ Distributed training via PyTorch DDP enables efficient multi-GPU utilization. We
 
 \subsection{Lessons Learned}
 
-\begin{enumerate}
+\paragraph{Profile First, Optimize Second.} Early profiling revealed that memory - not computation - is the true bottleneck in large-scale GraphSAGE training. This insight guided our optimization efforts toward batch size tuning and fanout reduction rather than computational optimizations (e.g., kernel fusion, mixed-precision training). Without profiling, we might have pursued ineffective optimizations.
 
-    \item \textbf{Accuracy vs. Performance:} [15,10,10,10,0] shows better accuracy with 2.7x speedup compared to baseline [15,10,10,10,10], showing that the 5th layer can be removed without significant accuracy loss.
-    \item \textbf{Profile before optimizing:} Memory emerged as the true bottleneck, not computation. Early profiling revealed this, guiding optimization focus.
-    \item \textbf{No free lunch:} Every optimization involves trade-offs. Larger batches speed training but hurt convergence. Distributed training provides speedup at communication cost.
-    \item \textbf{Reproducibility is paramount:} Containerization, fixed seeds, and detailed logging are essential for scientific HPC work. Variability in system state can obscure true performance characteristics.
-    
-\end{enumerate}
+\paragraph{Trade-offs Are Inevitable.} Every optimization involves trade-offs, and there is no "free lunch." Larger batch sizes accelerate training but increase memory consumption and can hurt convergence. Higher fanouts improve accuracy but cause exponential memory growth. Distributed training provides speedup but introduces communication overhead and loss degradation. Effective system design requires balancing these competing objectives based on task priorities.
+
+\paragraph{Reproducibility Is Paramount.} Containerization (Apptainer), fixed random seeds, and detailed logging are essential for rigorous scientific HPC work. Variability in system state (library versions, CUDA drivers, environment variables) can obscure true performance characteristics and make results non-reproducible. Our CSV-driven pipeline and containerized experiments ensure that all results can be independently verified.
+
+\paragraph{Layer Ablation Yields Insights.} The discovery that configuration [15,10,10,10,0] achieves near-baseline accuracy (81.14\% vs. 80.96\%) with a 2.7$\times$ speedup demonstrates that the 5th layer contributes minimal additional context. This suggests that 4-hop neighborhood aggregation captures sufficient structural information for this dataset, and that \textbf{deeper is not always better} in GNN design.
 
 %=======================================================================
 \section{Conclusion}
@@ -321,7 +572,8 @@ This study demonstrates that GraphSAGE, when properly tuned and deployed on HPC 
 
 
 %=======================================================================
-\printbibliography
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
 %=======================================================================
 
 \end{document}
