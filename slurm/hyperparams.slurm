@@ -31,7 +31,7 @@ mkdir -p ${SCRATCH_DIR}
 # ============================================================================
 
 # Read hyperparameters from CSV for this array task
-CONFIG_CSV="${WORKSPACE}/hyperparams.csv"
+CONFIG_CSV="${WORKSPACE}/configs/hyperparams.csv"
 CONFIG_LINE=$(sed -n "$((SLURM_ARRAY_TASK_ID + 2))p" ${CONFIG_CSV}) # skip header
 IFS=',' read -r id hidden_dim num_layers batch_size lr accum_steps num_neighbors_str <<< "${CONFIG_LINE}"
 num_neighbors=(${num_neighbors_str})
