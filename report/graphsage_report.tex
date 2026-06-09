@@ -128,22 +128,22 @@ Figures~\ref{fig:neighbor-expansion-tree} and \ref{fig:neighbor-explosion} illus
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[scale=0.7]
+\begin{tikzpicture}[scale=0.6]
     % Layer 0 (seed)
     \node[circle, draw, thick, fill=red!70, minimum size=0.5cm] (s) at (0, 0) {\tiny seed};
 
     % Layer 1 (3 neighbors)
     \foreach \i in {1,2,3} {
-        \pgfmathsetmacro{\x}{(\i-2)*2.5}
-        \node[circle, draw, thick, fill=orange!60, minimum size=0.4cm] (n1\i) at (\x, -1.8) {};
+        \pgfmathsetmacro{\x}{(\i-2)*3}
+        \node[circle, draw, thick, fill=orange!60, minimum size=0.4cm] (n1\i) at (\x, -1.3) {};
         \draw[->, thick, gray] (s) -- (n1\i);
     }
 
     % Layer 2 (6 neighbors - 2 per L1 node)
     \foreach \i in {1,2,3} {
         \foreach \j in {1,2} {
-            \pgfmathsetmacro{\x}{(\i-2)*2.5 + (\j-1.5)*1.1}
-            \node[circle, draw, thick, fill=yellow!60, minimum size=0.35cm] (n2\i\j) at (\x, -3.6) {};
+            \pgfmathsetmacro{\x}{(\i-2)*3 + (\j-1.5)*1.4}
+            \node[circle, draw, thick, fill=yellow!60, minimum size=0.35cm] (n2\i\j) at (\x, -2.4) {};
             \draw[->, thick, gray!60] (n1\i) -- (n2\i\j);
         }
     }
@@ -152,8 +152,8 @@ Figures~\ref{fig:neighbor-expansion-tree} and \ref{fig:neighbor-explosion} illus
     \foreach \i in {1,2,3} {
         \foreach \j in {1,2} {
             \foreach \k in {1,2} {
-                \pgfmathsetmacro{\x}{(\i-2)*2.5 + (\j-1.5)*1.1 + (\k-1.5)*0.6}
-                \node[circle, draw, thick, fill=green!40, minimum size=0.25cm] (n3\i\j\k) at (\x, -5.2) {};
+                \pgfmathsetmacro{\x}{(\i-2)*3 + (\j-1.5)*1.4 + (\k-1.5)*0.7}
+                \node[circle, draw, thick, fill=green!40, minimum size=0.25cm] (n3\i\j\k) at (\x, -3.6) {};
                 \draw[->, thick, gray!40] (n2\i\j) -- (n3\i\j\k);
             }
         }
@@ -162,7 +162,7 @@ Figures~\ref{fig:neighbor-expansion-tree} and \ref{fig:neighbor-explosion} illus
 \caption{K-hop neighborhood expansion visualization with simplified fanout [3, 2, 2]. Starting from a single seed node, each layer multiplies the node count by the fanout value, demonstrating the exponential growth pattern inherent in neighbor sampling.}
 \label{fig:neighbor-expansion-tree}
 \end{figure}
-
+\vspace{-0.5cm}
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
@@ -174,7 +174,7 @@ Figures~\ref{fig:neighbor-expansion-tree} and \ref{fig:neighbor-explosion} illus
         ymode=log,
         log origin=infty,
         width=\columnwidth,
-        height=5cm,
+        height=4cm,
         bar width=18pt,
         ymin=1,
         ymax=200000,
